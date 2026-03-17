@@ -12,6 +12,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -42,7 +44,13 @@ class MainActivity : ComponentActivity() {
                             val currentDestination = navBackStackEntry?.destination
                             items.forEach { screen ->
                                 NavigationBarItem(
-                                    icon = { Icon(screen.icon, contentDescription = null) },
+                                    icon = {
+                                        when (val icon = screen.icon) {
+                                            is ImageVector -> Icon(imageVector = icon, contentDescription = null)
+                                            is Int -> Icon(painter = painterResource(id = icon), contentDescription = null)
+                                            else -> {}
+                                        }
+                                    },
                                     label = { Text(screen.title) },
                                     selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
                                     onClick = {
