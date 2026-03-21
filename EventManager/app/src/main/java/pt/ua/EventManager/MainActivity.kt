@@ -5,21 +5,21 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
-import androidx.navigation.NavDestination.Companion.hierarchy
-import androidx.navigation.NavGraph.Companion.findStartDestination
-import androidx.navigation.compose.currentBackStackEntryAsState
-import androidx.navigation.compose.rememberNavController
-import pt.ua.EventManager.ui.navigation.NavigationGraph
+import kotlinx.coroutines.launch
 import pt.ua.EventManager.ui.navigation.Screen
+import pt.ua.EventManager.ui.screens.*
 import pt.ua.EventManager.ui.theme.EventManagerTheme
 
 
@@ -29,7 +29,6 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             EventManagerTheme {
-                val navController = rememberNavController()
                 val items = listOf(
                     Screen.Home,
                     Screen.EventMap,
@@ -37,12 +36,13 @@ class MainActivity : ComponentActivity() {
                     Screen.MyEvents,
                     Screen.Profile
                 )
+                val pagerState = rememberPagerState(pageCount = { items.size })
+                val scope = rememberCoroutineScope()
+
                 Scaffold(
                     bottomBar = {
                         NavigationBar {
-                            val navBackStackEntry by navController.currentBackStackEntryAsState()
-                            val currentDestination = navBackStackEntry?.destination
-                            items.forEach { screen ->
+                            items.forEachIndexed { index, screen ->
                                 NavigationBarItem(
                                     icon = {
                                         when (val icon = screen.icon) {
@@ -51,15 +51,10 @@ class MainActivity : ComponentActivity() {
                                             else -> {}
                                         }
                                     },
-                                    label = { Text(screen.title) },
-                                    selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
+                                    selected = pagerState.currentPage == index,
                                     onClick = {
-                                        navController.navigate(screen.route) {
-                                            popUpTo(navController.graph.findStartDestination().id) {
-                                                saveState = true
-                                            }
-                                            launchSingleTop = true
-                                            restoreState = true
+                                        scope.launch {
+                                            pagerState.animateScrollToPage(index)
                                         }
                                     }
                                 )
@@ -67,7 +62,18 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 ) { innerPadding ->
-                    NavigationGraph(navController = navController, modifier = Modifier.padding(innerPadding))
+                    HorizontalPager(
+                        state = pagerState,
+                        modifier = Modifier.padding(innerPadding)
+                    ) { page ->
+                        when (items[page]) {
+                            Screen.Home -> HomeScreen()
+                            Screen.EventMap -> EventMapScreen()
+                            Screen.EventCreate -> EventCreateScreen()
+                            Screen.MyEvents -> MyEventsScreen()
+                            Screen.Profile -> ProfileScreen()
+                        }
+                    }
                 }
             }
         }
