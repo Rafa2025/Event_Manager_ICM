@@ -22,7 +22,7 @@ import androidx.compose.ui.unit.sp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EventMapScreen() {
+fun EventMapScreen(onNotificationsClick: () -> Unit = {}) {
     var searchQuery by remember { mutableStateOf("") }
     val categories = listOf("All", "Party", "Dinner", "Meetup", "Sports", "Music")
     var selectedCategory by remember { mutableStateOf("All") }
@@ -36,6 +36,11 @@ fun EventMapScreen() {
                         fontWeight = FontWeight.Bold,
                         fontSize = 26.sp
                     )
+                },
+                actions = {
+                    IconButton(onClick = onNotificationsClick) {
+                        Icon(Icons.Default.Notifications, null, tint = Color.White)
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primary,

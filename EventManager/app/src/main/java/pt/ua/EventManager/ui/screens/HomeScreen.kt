@@ -23,7 +23,7 @@ import pt.ua.EventManager.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen() {
+fun HomeScreen(onNotificationsClick: () -> Unit = {}) {
     Scaffold(
         topBar = {
             TopAppBar(
@@ -33,6 +33,11 @@ fun HomeScreen() {
                         fontWeight = FontWeight.Bold,
                         fontSize = 26.sp
                     )
+                },
+                actions = {
+                    IconButton(onClick = onNotificationsClick) {
+                        Icon(Icons.Default.Notifications, null, tint = Color.White)
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primary,

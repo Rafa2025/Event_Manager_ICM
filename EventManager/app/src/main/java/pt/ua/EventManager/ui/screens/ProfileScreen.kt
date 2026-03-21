@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Search
@@ -51,7 +52,7 @@ import androidx.compose.ui.unit.sp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProfileScreen() {
+fun ProfileScreen(onNotificationsClick: () -> Unit = {}) {
     Scaffold(
         topBar = {
             TopAppBar(
@@ -61,6 +62,11 @@ fun ProfileScreen() {
                         fontWeight = FontWeight.Bold,
                         fontSize = 26.sp
                     )
+                },
+                actions = {
+                    IconButton(onClick = onNotificationsClick) {
+                        Icon(Icons.Default.Notifications, null, tint = Color.White)
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primary,

@@ -31,6 +31,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -56,7 +57,7 @@ import androidx.compose.ui.unit.sp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EventCreateScreen() {
+fun EventCreateScreen(onNotificationsClick: () -> Unit = {}) {
     Scaffold(
         topBar = {
             TopAppBar(
@@ -66,6 +67,11 @@ fun EventCreateScreen() {
                         fontWeight = FontWeight.Bold,
                         fontSize = 26.sp
                     )
+                },
+                actions = {
+                    IconButton(onClick = onNotificationsClick) {
+                        Icon(Icons.Default.Notifications, contentDescription = null, tint = Color.White)
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primary,

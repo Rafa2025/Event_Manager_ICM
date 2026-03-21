@@ -20,7 +20,7 @@ import androidx.compose.ui.unit.sp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MyEventsScreen() {
+fun MyEventsScreen(onNotificationsClick: () -> Unit = {}) {
     var selectedTab by remember { mutableIntStateOf(0) }
     val tabs = listOf("Hosting", "Attending", "History")
 
@@ -33,6 +33,11 @@ fun MyEventsScreen() {
                         fontWeight = FontWeight.Bold,
                         fontSize = 26.sp
                     )
+                },
+                actions = {
+                    IconButton(onClick = onNotificationsClick) {
+                        Icon(Icons.Default.Notifications, contentDescription = null, tint = Color.White)
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primary,
