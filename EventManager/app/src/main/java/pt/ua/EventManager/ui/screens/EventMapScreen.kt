@@ -1,12 +1,10 @@
 package pt.ua.EventManager.ui.screens
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -14,11 +12,18 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.model.LatLng
+import com.google.maps.android.compose.GoogleMap
+import com.google.maps.android.compose.Marker
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import com.google.maps.android.compose.MarkerState
+import com.google.maps.android.compose.rememberCameraPositionState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -26,6 +31,11 @@ fun EventMapScreen(onNotificationsClick: () -> Unit = {}) {
     var searchQuery by remember { mutableStateOf("") }
     val categories = listOf("All", "Party", "Dinner", "Meetup", "Sports", "Music")
     var selectedCategory by remember { mutableStateOf("All") }
+
+    val aveiro = LatLng(40.6405, -8.6538)
+    val cameraPositionState = rememberCameraPositionState {
+        position = CameraPosition.fromLatLngZoom(aveiro, 13f)
+    }
 
     Scaffold(
         topBar = {
@@ -39,7 +49,7 @@ fun EventMapScreen(onNotificationsClick: () -> Unit = {}) {
                 },
                 actions = {
                     IconButton(onClick = onNotificationsClick) {
-                        Icon(Icons.Default.Notifications, null, tint = Color.White)
+                        Icon(imageVector = Icons.Default.Notifications, contentDescription = null, tint = Color.White)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -91,34 +101,24 @@ fun EventMapScreen(onNotificationsClick: () -> Unit = {}) {
                 }
             }
 
-            // Map Placeholder
-            Box(modifier = Modifier.fillMaxSize().background(Color(0xFFF1F1F1))) {
-                Canvas(modifier = Modifier.fillMaxSize()) {
-                    val gridSize = 40.dp.toPx()
-                    for (x in 0..(size.width / gridSize).toInt()) {
-                        drawLine(Color.LightGray.copy(alpha = 0.3f), Offset(x * gridSize, 0f), Offset(x * gridSize, size.height), strokeWidth = 1f)
-                    }
-                    for (y in 0..(size.height / gridSize).toInt()) {
-                        drawLine(Color.LightGray.copy(alpha = 0.3f), Offset(0f, y * gridSize), Offset(size.width, y * gridSize), strokeWidth = 1f)
-                    }
+            // Google Map
+            Box(modifier = Modifier.fillMaxSize()) {
+                GoogleMap(
+                    modifier = Modifier.fillMaxSize(),
+                    cameraPositionState = cameraPositionState
+                ) {
+                    Marker(
+                        state = MarkerState(position = LatLng(40.6405, -8.6538)),
+                        title = "University of Aveiro",
+                        snippet = "Tech Meetup"
+                    )
+                    Marker(
+                        state = MarkerState(position = LatLng(40.6445, -8.6598)),
+                        title = "Forum Aveiro",
+                        snippet = "Music Festival"
+                    )
                 }
-
-                // Markers as seen in the images
-                MapMarker(Modifier.align(Alignment.Center).offset(x = (-60).dp, y = (-100).dp))
-                MapMarker(Modifier.align(Alignment.Center).offset(x = 20.dp, y = (-40).dp))
-                MapMarker(Modifier.align(Alignment.Center).offset(x = 80.dp, y = 40.dp))
-                MapMarker(Modifier.align(Alignment.Center).offset(x = 150.dp, y = 120.dp))
             }
         }
     }
-}
-
-@Composable
-fun MapMarker(modifier: Modifier = Modifier) {
-    Icon(
-        imageVector = Icons.Default.LocationOn,
-        contentDescription = null,
-        modifier = modifier.size(36.dp),
-        tint = MaterialTheme.colorScheme.primary
-    )
 }
