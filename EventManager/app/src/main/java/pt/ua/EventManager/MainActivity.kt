@@ -7,16 +7,13 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -43,14 +40,18 @@ class MainActivity : ComponentActivity() {
                     Screen.Profile
                 )
 
-                // Notifications is a screen but not in the bottom bar
-                val allScreens = navBarItems + Screen.Notifications
+                // Screens that are not in the bottom bar
+                val allScreens = navBarItems + Screen.Notifications + Screen.EventDetails + Screen.HostingDetails + Screen.AttendingDetails
 
                 val pagerState = rememberPagerState(pageCount = { allScreens.size })
                 val scope = rememberCoroutineScope()
                 
-                // Track the previous page to return to when closing notifications
+                // Track the previous page to return to when closing notifications or details
                 var previousPageIndex by remember { mutableIntStateOf(0) }
+                
+                // State to hold the currently selected event for the details screen
+                var selectedEvent by remember { mutableStateOf<Event?>(null) }
+                var selectedMyEvent by remember { mutableStateOf<MyEvent?>(null) }
 
                 Scaffold(
                     bottomBar = {
@@ -59,9 +60,9 @@ class MainActivity : ComponentActivity() {
                             tonalElevation = 8.dp,
                         ) {
                             navBarItems.forEachIndexed { index, screen ->
-                                // If we are on Notifications screen, none of the items should be selected
-                                val isSelected = if (pagerState.currentPage == allScreens.indexOf(Screen.Notifications)) {
-                                    false
+                                // If we are on a "hidden" screen, highlight the tab we came from
+                                val isSelected = if (pagerState.currentPage >= navBarItems.size) {
+                                    index == previousPageIndex
                                 } else {
                                     pagerState.currentPage == index
                                 }
@@ -93,10 +94,9 @@ class MainActivity : ComponentActivity() {
                                         )
                                     },
                                     selected = isSelected,
-                                    alwaysShowLabel = false, // Labels will only appear when selected
+                                    alwaysShowLabel = false,
                                     onClick = {
                                         scope.launch {
-                                            // Using scrollToPage instead of animateScrollToPage to avoid sliding through intermediate pages
                                             pagerState.scrollToPage(index)
                                         }
                                     },
@@ -116,28 +116,69 @@ class MainActivity : ComponentActivity() {
                     HorizontalPager(
                         state = pagerState,
                         modifier = Modifier.padding(innerPadding),
-                        userScrollEnabled = false // Disable swiping to avoid accidental navigation to hidden screens
+                        userScrollEnabled = false
                     ) { page ->
                         val onNotificationsClick = {
                             previousPageIndex = pagerState.currentPage
                             scope.launch {
-                                // Instant transition to notifications
                                 pagerState.scrollToPage(allScreens.indexOf(Screen.Notifications))
                             }
                         }
 
                         when (allScreens[page]) {
-                            Screen.Home -> HomeScreen(onNotificationsClick = { onNotificationsClick() })
+                            Screen.Home -> HomeScreen(
+                                onNotificationsClick = { onNotificationsClick() },
+                                onEventClick = { event ->
+                                    selectedEvent = event
+                                    previousPageIndex = pagerState.currentPage
+                                    scope.launch {
+                                        pagerState.scrollToPage(allScreens.indexOf(Screen.EventDetails))
+                                    }
+                                }
+                            )
                             Screen.EventMap -> EventMapScreen(onNotificationsClick = { onNotificationsClick() })
                             Screen.EventCreate -> EventCreateScreen(onNotificationsClick = { onNotificationsClick() })
-                            Screen.MyEvents -> MyEventsScreen(onNotificationsClick = { onNotificationsClick() })
+                            Screen.MyEvents -> MyEventsScreen(
+                                onNotificationsClick = { onNotificationsClick() },
+                                onEventClick = { event, isHosting ->
+                                    selectedMyEvent = event
+                                    previousPageIndex = pagerState.currentPage
+                                    scope.launch {
+                                        val route = if (isHosting) Screen.HostingDetails else Screen.AttendingDetails
+                                        pagerState.scrollToPage(allScreens.indexOf(route))
+                                    }
+                                }
+                            )
                             Screen.Profile -> ProfileScreen(onNotificationsClick = { onNotificationsClick() })
                             Screen.Notifications -> NotificationsScreen(onBack = {
                                 scope.launch {
-                                    // Instant transition back
                                     pagerState.scrollToPage(previousPageIndex)
                                 }
                             })
+                            Screen.EventDetails -> EventDetailsScreen(
+                                event = selectedEvent,
+                                onBack = {
+                                    scope.launch {
+                                        pagerState.scrollToPage(previousPageIndex)
+                                    }
+                                }
+                            )
+                            Screen.HostingDetails -> HostingDetailsScreen(
+                                event = selectedMyEvent,
+                                onBack = {
+                                    scope.launch {
+                                        pagerState.scrollToPage(previousPageIndex)
+                                    }
+                                }
+                            )
+                            Screen.AttendingDetails -> AttendingDetailsScreen(
+                                event = selectedMyEvent,
+                                onBack = {
+                                    scope.launch {
+                                        pagerState.scrollToPage(previousPageIndex)
+                                    }
+                                }
+                            )
                         }
                     }
                 }

@@ -1,5 +1,6 @@
 package pt.ua.EventManager.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -20,9 +21,12 @@ import androidx.compose.ui.unit.sp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MyEventsScreen(onNotificationsClick: () -> Unit = {}) {
+fun MyEventsScreen(
+    onNotificationsClick: () -> Unit = {},
+    onEventClick: (MyEvent, Boolean) -> Unit = { _, _ -> }
+) {
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Hosting", "Attending", "History")
+    val tabs = listOf("Hosting", "Attending")
 
     Scaffold(
         topBar = {
@@ -81,7 +85,11 @@ fun MyEventsScreen(onNotificationsClick: () -> Unit = {}) {
             ) {
                 if (selectedTab == 0) {
                     items(hostingEvents) { event ->
-                        MyEventCard(event)
+                        MyEventCard(event, onClick = { onEventClick(event, true) })
+                    }
+                } else if (selectedTab == 1) {
+                    items(attendingEvents) { event ->
+                        MyEventCard(event, onClick = { onEventClick(event, false) })
                     }
                 }
             }
@@ -102,10 +110,17 @@ val hostingEvents = listOf(
     MyEvent("Movie Night", "Mar 25, 2026", "My Place", 8)
 )
 
+val attendingEvents = listOf(
+    MyEvent("Design Workshop", "Mar 18, 2026", "UA - Dept. of Arts", 15),
+    MyEvent("Coding Challenge", "Mar 22, 2026", "Online", 120)
+)
+
 @Composable
-fun MyEventCard(event: MyEvent) {
+fun MyEventCard(event: MyEvent, onClick: () -> Unit = {}) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
         shape = RoundedCornerShape(32.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)

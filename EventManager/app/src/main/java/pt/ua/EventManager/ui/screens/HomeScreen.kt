@@ -1,6 +1,7 @@
 package pt.ua.EventManager.ui.screens
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -23,7 +24,10 @@ import pt.ua.EventManager.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(onNotificationsClick: () -> Unit = {}) {
+fun HomeScreen(
+    onNotificationsClick: () -> Unit = {},
+    onEventClick: (Event) -> Unit = {}
+) {
     Scaffold(
         topBar = {
             TopAppBar(
@@ -36,7 +40,7 @@ fun HomeScreen(onNotificationsClick: () -> Unit = {}) {
                 },
                 actions = {
                     IconButton(onClick = onNotificationsClick) {
-                        Icon(Icons.Default.Notifications, null, tint = Color.White)
+                        Icon(imageVector = Icons.Default.Notifications, contentDescription = null, tint = Color.White)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -56,7 +60,7 @@ fun HomeScreen(onNotificationsClick: () -> Unit = {}) {
             contentPadding = PaddingValues(vertical = 16.dp)
         ) {
             items(sampleEvents) { event ->
-                EventCard(event)
+                EventCard(event, onClick = { onEventClick(event) })
             }
             item {
                 Text(
@@ -91,9 +95,11 @@ val sampleEvents = listOf(
 )
 
 @Composable
-fun EventCard(event: Event) {
+fun EventCard(event: Event, onClick: () -> Unit) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
