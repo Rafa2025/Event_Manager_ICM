@@ -64,6 +64,9 @@ fun AttendingDetailsScreen(event: MyEvent?, onBack: () -> Unit) {
                 InfoRow(Icons.Default.Groups, "${event.participants} people joining")
             }
 
+            // Chat Section
+            EventChatSection()
+
             Spacer(modifier = Modifier.weight(1f))
 
             Button(

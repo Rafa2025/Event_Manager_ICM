@@ -8,7 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -79,7 +79,8 @@ fun HostingDetailsScreen(event: MyEvent?, onBack: () -> Unit) {
                 InfoRow(Icons.Default.Groups, "${event.participants} people joined")
             }
 
-            Spacer(modifier = Modifier.weight(1f))
+            // Chat Section
+            EventChatSection()
 
             Button(
                 onClick = { },
