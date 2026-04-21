@@ -14,11 +14,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import pt.ua.EventManager.data.Event
+import java.text.SimpleDateFormat
+import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AttendingDetailsScreen(event: MyEvent?, onBack: () -> Unit) {
+fun AttendingDetailsScreen(event: Event?, onBack: () -> Unit) {
     if (event == null) return
+    
+    val sdf = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+    val dateString = sdf.format(Date(event.timestamp))
 
     Scaffold(
         topBar = {
@@ -26,7 +32,7 @@ fun AttendingDetailsScreen(event: MyEvent?, onBack: () -> Unit) {
                 title = { Text("Attending Details", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -59,15 +65,14 @@ fun AttendingDetailsScreen(event: MyEvent?, onBack: () -> Unit) {
             Column {
                 Text("Event Details", fontWeight = FontWeight.Bold, fontSize = 18.sp)
                 Spacer(modifier = Modifier.height(12.dp))
-                InfoRow(Icons.Default.CalendarToday, event.date)
-                InfoRow(Icons.Default.LocationOn, event.location)
-                InfoRow(Icons.Default.Groups, "${event.participants} people joining")
+                CommonInfoRow(Icons.Default.CalendarToday, dateString)
+                CommonInfoRow(Icons.Default.LocationOn, event.address)
+                CommonInfoRow(Icons.Default.Groups, "${event.participantsUids.size} people joining")
             }
 
-            // Chat Section
             EventChatSection()
 
-            Spacer(modifier = Modifier.weight(1f))
+            Spacer(modifier = Modifier.height(20.dp))
 
             Button(
                 onClick = { },

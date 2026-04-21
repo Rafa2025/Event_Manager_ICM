@@ -13,13 +13,17 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import pt.ua.EventManager.R
+import pt.ua.EventManager.data.Event
+import java.text.SimpleDateFormat
+import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -31,13 +35,16 @@ fun EventDetailsScreen(event: Event?, onBack: () -> Unit) {
         return
     }
 
+    val sdf = SimpleDateFormat("MMM dd, yyyy • h:mm a", Locale.getDefault())
+    val dateString = sdf.format(Date(event.timestamp))
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Event Details", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -54,7 +61,7 @@ fun EventDetailsScreen(event: Event?, onBack: () -> Unit) {
                 .verticalScroll(rememberScrollState())
         ) {
             Image(
-                painter = painterResource(id = event.imageRes),
+                painter = painterResource(id = R.drawable.ic_launcher_background),
                 contentDescription = null,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -63,37 +70,24 @@ fun EventDetailsScreen(event: Event?, onBack: () -> Unit) {
             )
 
             Column(modifier = Modifier.padding(16.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = event.title,
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
-                    Surface(
-                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.1f),
-                        shape = RoundedCornerShape(12.dp),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
-                    ) {
-                        Text(
-                            event.category,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            color = MaterialTheme.colorScheme.primary,
-                            fontSize = 14.sp
-                        )
-                    }
-                }
+                Text(
+                    text = event.title,
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                InfoRow(Icons.Default.CalendarToday, event.date)
-                InfoRow(Icons.Default.AccessTime, event.time)
-                InfoRow(Icons.Default.LocationOn, event.location)
-                InfoRow(Icons.Default.Groups, "${event.attending}/${event.maxCapacity} attending")
+                DetailInfoRow(Icons.Default.Schedule, dateString)
+                DetailInfoRow(Icons.Default.Place, event.address)
+                
+                val attendingText = if (event.maxParticipants != null) {
+                    "${event.participantsUids.size}/${event.maxParticipants} attending"
+                } else {
+                    "${event.participantsUids.size} attending"
+                }
+                DetailInfoRow(Icons.Default.Groups, attendingText)
 
                 Spacer(modifier = Modifier.height(24.dp))
 
@@ -102,16 +96,16 @@ fun EventDetailsScreen(event: Event?, onBack: () -> Unit) {
                     modifier = Modifier.padding(vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Avatar(text = event.host.take(1), color = MaterialTheme.colorScheme.secondary)
+                    DetailAvatar(text = "H", color = MaterialTheme.colorScheme.secondary)
                     Spacer(modifier = Modifier.width(12.dp))
-                    Text(event.host, fontWeight = FontWeight.Medium, fontSize = 16.sp)
+                    Text("User ${event.organizerUid.take(5)}", fontWeight = FontWeight.Medium, fontSize = 16.sp)
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
 
                 Text("Description", fontWeight = FontWeight.Bold, fontSize = 18.sp)
                 Text(
-                    "Join us for an amazing ${event.category} event! This is a great opportunity to meet new people and have a fantastic time at ${event.location}. Don't miss out!",
+                    event.description.ifEmpty { "No description provided." },
                     modifier = Modifier.padding(vertical = 8.dp),
                     color = Color.Gray,
                     lineHeight = 20.sp
@@ -134,13 +128,23 @@ fun EventDetailsScreen(event: Event?, onBack: () -> Unit) {
 }
 
 @Composable
-fun InfoRow(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String) {
-    Row(
-        modifier = Modifier.padding(vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+private fun DetailInfoRow(icon: ImageVector, text: String) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 6.dp)) {
+        Icon(imageVector = icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
         Spacer(modifier = Modifier.width(12.dp))
         Text(text, fontSize = 16.sp, color = Color.DarkGray)
+    }
+}
+
+@Composable
+private fun DetailAvatar(text: String, color: Color) {
+    Surface(
+        modifier = Modifier.size(40.dp),
+        shape = CircleShape,
+        color = color
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(text, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        }
     }
 }

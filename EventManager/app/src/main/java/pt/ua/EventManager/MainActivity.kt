@@ -7,30 +7,34 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
+import pt.ua.EventManager.data.Event
 import pt.ua.EventManager.ui.navigation.Screen
 import pt.ua.EventManager.ui.screens.*
 import pt.ua.EventManager.ui.theme.EventManagerTheme
+import pt.ua.EventManager.ui.viewmodels.UserViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
+            val userViewModel: UserViewModel = viewModel()
+            val currentUser by userViewModel.currentUser.collectAsState()
+
             EventManagerTheme {
                 val navBarItems = listOf(
                     Screen.Home,
@@ -40,18 +44,14 @@ class MainActivity : ComponentActivity() {
                     Screen.Profile
                 )
 
-                // Screens that are not in the bottom bar
                 val allScreens = navBarItems + Screen.Notifications + Screen.EventDetails + Screen.HostingDetails + Screen.AttendingDetails
 
                 val pagerState = rememberPagerState(pageCount = { allScreens.size })
                 val scope = rememberCoroutineScope()
                 
-                // Track the previous page to return to when closing notifications or details
                 var previousPageIndex by remember { mutableIntStateOf(0) }
-                
-                // State to hold the currently selected event for the details screen
                 var selectedEvent by remember { mutableStateOf<Event?>(null) }
-                var selectedMyEvent by remember { mutableStateOf<MyEvent?>(null) }
+                var selectedMyEvent by remember { mutableStateOf<Event?>(null) }
 
                 Scaffold(
                     bottomBar = {
@@ -60,7 +60,6 @@ class MainActivity : ComponentActivity() {
                             tonalElevation = 8.dp,
                         ) {
                             navBarItems.forEachIndexed { index, screen ->
-                                // If we are on a "hidden" screen, highlight the tab we came from
                                 val isSelected = if (pagerState.currentPage >= navBarItems.size) {
                                     index == previousPageIndex
                                 } else {
@@ -76,13 +75,11 @@ class MainActivity : ComponentActivity() {
                                                 contentDescription = null,
                                                 modifier = iconModifier
                                             )
-
                                             is Int -> Icon(
                                                 painter = painterResource(id = icon),
                                                 contentDescription = null,
                                                 modifier = iconModifier
                                             )
-
                                             else -> {}
                                         }
                                     },
@@ -110,7 +107,6 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                         }
-
                     }
                 ) { innerPadding ->
                     HorizontalPager(
@@ -137,19 +133,55 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
                             Screen.EventMap -> EventMapScreen(onNotificationsClick = { onNotificationsClick() })
-                            Screen.EventCreate -> EventCreateScreen(onNotificationsClick = { onNotificationsClick() })
-                            Screen.MyEvents -> MyEventsScreen(
-                                onNotificationsClick = { onNotificationsClick() },
-                                onEventClick = { event, isHosting ->
-                                    selectedMyEvent = event
-                                    previousPageIndex = pagerState.currentPage
-                                    scope.launch {
-                                        val route = if (isHosting) Screen.HostingDetails else Screen.AttendingDetails
-                                        pagerState.scrollToPage(allScreens.indexOf(route))
-                                    }
+                            Screen.EventCreate -> {
+                                if (currentUser == null) {
+                                    LoginRequiredScreen(
+                                        title = "Create Event",
+                                        message = "You need to be logged in to create an event.",
+                                        onLoginClick = {
+                                            scope.launch {
+                                                pagerState.scrollToPage(navBarItems.indexOf(Screen.Profile))
+                                            }
+                                        }
+                                    )
+                                } else {
+                                    EventCreateScreen(onNotificationsClick = { onNotificationsClick() })
                                 }
-                            )
-                            Screen.Profile -> ProfileScreen(onNotificationsClick = { onNotificationsClick() })
+                            }
+                            Screen.MyEvents -> {
+                                if (currentUser == null) {
+                                    LoginRequiredScreen(
+                                        title = "My Events",
+                                        message = "Log in to see your hosted and joined events.",
+                                        onLoginClick = {
+                                            scope.launch {
+                                                pagerState.scrollToPage(navBarItems.indexOf(Screen.Profile))
+                                            }
+                                        }
+                                    )
+                                } else {
+                                    MyEventsScreen(
+                                        onNotificationsClick = { onNotificationsClick() },
+                                        onEventClick = { event, isHosting ->
+                                            selectedMyEvent = event
+                                            previousPageIndex = pagerState.currentPage
+                                            scope.launch {
+                                                val route = if (isHosting) Screen.HostingDetails else Screen.AttendingDetails
+                                                pagerState.scrollToPage(allScreens.indexOf(route))
+                                            }
+                                        }
+                                    )
+                                }
+                            }
+                            Screen.Profile -> {
+                                if (currentUser == null) {
+                                    LoginScreen(userViewModel = userViewModel) {
+                                        // On login success, we stay on this page which will now show ProfileScreen
+                                    }
+                                } else {
+                                    ProfileScreen(onNotificationsClick = { onNotificationsClick() }, userViewModel = userViewModel)
+                                }
+                            }
                             Screen.Notifications -> NotificationsScreen(onBack = {
                                 scope.launch {
                                     pagerState.scrollToPage(previousPageIndex)
@@ -183,6 +215,27 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun LoginRequiredScreen(title: String, message: String, onLoginClick: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(title, fontSize = 26.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(message, textAlign = TextAlign.Center, color = Color.Gray)
+        Spacer(modifier = Modifier.height(24.dp))
+        Button(
+            onClick = onLoginClick,
+            modifier = Modifier.fillMaxWidth().height(56.dp),
+            shape = RoundedCornerShape(28.dp)
+        ) {
+            Text("Go to Login", fontWeight = FontWeight.Bold)
         }
     }
 }

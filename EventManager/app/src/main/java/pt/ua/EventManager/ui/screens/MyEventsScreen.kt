@@ -14,19 +14,30 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import pt.ua.EventManager.data.Event
+import pt.ua.EventManager.ui.viewmodels.EventViewModel
+import java.text.SimpleDateFormat
+import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MyEventsScreen(
     onNotificationsClick: () -> Unit = {},
-    onEventClick: (MyEvent, Boolean) -> Unit = { _, _ -> }
+    onEventClick: (Event, Boolean) -> Unit = { _, _ -> },
+    viewModel: EventViewModel = viewModel()
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
     val tabs = listOf("Hosting", "Attending")
+    
+    val allEvents by viewModel.events.collectAsState()
+    
+    // Filtros dinâmicos
+    val hostingEvents = viewModel.getHostingEvents(allEvents)
+    val attendingEvents = viewModel.getAttendingEvents(allEvents)
 
     Scaffold(
         topBar = {
@@ -40,7 +51,7 @@ fun MyEventsScreen(
                 },
                 actions = {
                     IconButton(onClick = onNotificationsClick) {
-                        Icon(Icons.Default.Notifications, contentDescription = null, tint = Color.White)
+                        Icon(imageVector = Icons.Default.Notifications, contentDescription = null, tint = Color.White)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -83,40 +94,33 @@ fun MyEventsScreen(
                 modifier = Modifier.fillMaxSize().padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                if (selectedTab == 0) {
-                    items(hostingEvents) { event ->
-                        MyEventCard(event, onClick = { onEventClick(event, true) })
+                val currentList = if (selectedTab == 0) hostingEvents else attendingEvents
+                
+                if (currentList.isEmpty()) {
+                    item {
+                        Box(Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) {
+                            Text(
+                                text = if (selectedTab == 0) "You are not hosting any events." else "You are not attending any events.",
+                                color = Color.Gray,
+                                fontSize = 16.sp
+                            )
+                        }
                     }
-                } else if (selectedTab == 1) {
-                    items(attendingEvents) { event ->
-                        MyEventCard(event, onClick = { onEventClick(event, false) })
-                    }
+                }
+
+                items(currentList) { event ->
+                    MyEventRealCard(event, onClick = { onEventClick(event, selectedTab == 0) })
                 }
             }
         }
     }
 }
 
-data class MyEvent(
-    val title: String,
-    val date: String,
-    val location: String,
-    val participants: Int,
-    val status: String = "Upcoming"
-)
-
-val hostingEvents = listOf(
-    MyEvent("Summer BBQ Party", "Mar 15, 2026", "Central Park", 24),
-    MyEvent("Movie Night", "Mar 25, 2026", "My Place", 8)
-)
-
-val attendingEvents = listOf(
-    MyEvent("Design Workshop", "Mar 18, 2026", "UA - Dept. of Arts", 15),
-    MyEvent("Coding Challenge", "Mar 22, 2026", "Online", 120)
-)
-
 @Composable
-fun MyEventCard(event: MyEvent, onClick: () -> Unit = {}) {
+fun MyEventRealCard(event: Event, onClick: () -> Unit = {}) {
+    val sdf = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+    val dateString = sdf.format(Date(event.timestamp))
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -133,11 +137,11 @@ fun MyEventCard(event: MyEvent, onClick: () -> Unit = {}) {
                 Text(event.title, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                 Spacer(modifier = Modifier.height(8.dp))
                 Surface(
-                    color = Color(0xFF10B981), // Emerald/Green for Success
+                    color = if (event.isPublic) Color(0xFF10B981) else Color(0xFF6366F1), 
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Text(
-                        event.status,
+                        if (event.isPublic) "Public" else "Private",
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                         color = Color.White,
                         fontSize = 12.sp,
@@ -145,9 +149,9 @@ fun MyEventCard(event: MyEvent, onClick: () -> Unit = {}) {
                     )
                 }
                 Spacer(modifier = Modifier.height(12.dp))
-                MyEventInfoRow(Icons.Default.AccessTime, event.date)
-                MyEventInfoRow(Icons.Default.LocationOn, event.location)
-                MyEventInfoRow(Icons.Default.Groups, "${event.participants} people")
+                CommonInfoRow(Icons.Default.AccessTime, dateString)
+                CommonInfoRow(Icons.Default.LocationOn, event.address)
+                CommonInfoRow(Icons.Default.Groups, "${event.participantsUids.size} people")
             }
             Surface(
                 color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
@@ -156,7 +160,7 @@ fun MyEventCard(event: MyEvent, onClick: () -> Unit = {}) {
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Text(
-                        event.participants.toString(),
+                        event.participantsUids.size.toString(),
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp
@@ -164,14 +168,5 @@ fun MyEventCard(event: MyEvent, onClick: () -> Unit = {}) {
                 }
             }
         }
-    }
-}
-
-@Composable
-fun MyEventInfoRow(icon: ImageVector, text: String) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 4.dp)) {
-        Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp), tint = Color.Gray)
-        Spacer(modifier = Modifier.width(12.dp))
-        Text(text, color = Color.Gray, fontSize = 15.sp)
     }
 }

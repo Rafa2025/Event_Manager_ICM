@@ -8,18 +8,24 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import pt.ua.EventManager.data.Event
+import java.text.SimpleDateFormat
+import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HostingDetailsScreen(event: MyEvent?, onBack: () -> Unit) {
+fun HostingDetailsScreen(event: Event?, onBack: () -> Unit) {
     if (event == null) return
+
+    val sdf = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+    val dateString = sdf.format(Date(event.timestamp))
 
     Scaffold(
         topBar = {
@@ -27,12 +33,12 @@ fun HostingDetailsScreen(event: MyEvent?, onBack: () -> Unit) {
                 title = { Text("Hosting Details", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
                     }
                 },
                 actions = {
                     IconButton(onClick = { /* Edit event */ }) {
-                        Icon(Icons.Default.Edit, contentDescription = "Edit", tint = Color.White)
+                        Icon(imageVector = Icons.Default.Edit, contentDescription = "Edit", tint = Color.White)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -58,7 +64,7 @@ fun HostingDetailsScreen(event: MyEvent?, onBack: () -> Unit) {
                 Column(modifier = Modifier.padding(24.dp)) {
                     Text(event.title, fontSize = 24.sp, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text(event.status, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                    Text(if (event.isPublic) "Public Event" else "Private Event", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                 }
             }
 
@@ -74,9 +80,9 @@ fun HostingDetailsScreen(event: MyEvent?, onBack: () -> Unit) {
             Column {
                 Text("Details", fontWeight = FontWeight.Bold, fontSize = 18.sp)
                 Spacer(modifier = Modifier.height(12.dp))
-                InfoRow(Icons.Default.CalendarToday, event.date)
-                InfoRow(Icons.Default.LocationOn, event.location)
-                InfoRow(Icons.Default.Groups, "${event.participants} people joined")
+                CommonInfoRow(Icons.Default.CalendarToday, dateString)
+                CommonInfoRow(Icons.Default.LocationOn, event.address)
+                CommonInfoRow(Icons.Default.Groups, "${event.participantsUids.size} people joined")
             }
 
             // Chat Section
@@ -102,7 +108,7 @@ fun ManagementButton(modifier: Modifier, icon: androidx.compose.ui.graphics.vect
         shape = RoundedCornerShape(16.dp)
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(icon, null)
+            Icon(imageVector = icon, contentDescription = null)
             Text(text, fontSize = 12.sp)
         }
     }

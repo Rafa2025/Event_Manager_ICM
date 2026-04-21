@@ -1,63 +1,92 @@
 package pt.ua.EventManager.ui.screens
 
+import android.app.DatePickerDialog
+import android.app.TimePickerDialog
+import android.widget.Toast
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountBox
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.google.firebase.firestore.GeoPoint
+import pt.ua.EventManager.data.Event
+import pt.ua.EventManager.ui.viewmodels.EventViewModel
+import pt.ua.EventManager.ui.viewmodels.UserViewModel
+import java.text.SimpleDateFormat
+import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EventCreateScreen(onNotificationsClick: () -> Unit = {}) {
+fun EventCreateScreen(
+    onNotificationsClick: () -> Unit = {},
+    viewModel: EventViewModel = viewModel(),
+    userViewModel: UserViewModel = viewModel()
+) {
+    val context = LocalContext.current
+    val calendar = Calendar.getInstance()
+    val currentUser by userViewModel.currentUser.collectAsState()
+    
+    // Estados para os campos do formulário
+    var eventName by remember { mutableStateOf("") }
+    var description by remember { mutableStateOf("") }
+    var category by remember { mutableStateOf("Meetup") }
+    var dateText by remember { mutableStateOf("mm/dd/yy") }
+    var timeText by remember { mutableStateOf("--:-- --") }
+    var address by remember { mutableStateOf("") }
+    var minPeople by remember { mutableStateOf("5") }
+    var maxPeople by remember { mutableStateOf("30") }
+    var foodOption by remember { mutableStateOf("None") }
+    var isPrivate by remember { mutableStateOf(false) }
+    var isLoading by remember { mutableStateOf(false) }
+    
+    var timestamp by remember { mutableLongStateOf(System.currentTimeMillis()) }
+
+    // Dialogs
+    val datePickerDialog = DatePickerDialog(
+        context,
+        { _, year, month, dayOfMonth ->
+            calendar.set(year, month, dayOfMonth)
+            val sdf = SimpleDateFormat("MM/dd/yy", Locale.getDefault())
+            dateText = sdf.format(calendar.time)
+            timestamp = calendar.timeInMillis
+        },
+        calendar.get(Calendar.YEAR),
+        calendar.get(Calendar.MONTH),
+        calendar.get(Calendar.DAY_OF_MONTH)
+    )
+
+    val timePickerDialog = TimePickerDialog(
+        context,
+        { _, hourOfDay, minute ->
+            calendar.set(Calendar.HOUR_OF_DAY, hourOfDay)
+            calendar.set(Calendar.MINUTE, minute)
+            val sdf = SimpleDateFormat("hh:mm a", Locale.getDefault())
+            timeText = sdf.format(calendar.time)
+            timestamp = calendar.timeInMillis
+        },
+        calendar.get(Calendar.HOUR_OF_DAY),
+        calendar.get(Calendar.MINUTE),
+        false
+    )
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -70,7 +99,7 @@ fun EventCreateScreen(onNotificationsClick: () -> Unit = {}) {
                 },
                 actions = {
                     IconButton(onClick = onNotificationsClick) {
-                        Icon(Icons.Default.Notifications, contentDescription = null, tint = Color.White)
+                        Icon(imageVector = Icons.Default.Notifications, contentDescription = null, tint = Color.White)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -106,7 +135,7 @@ fun EventCreateScreen(onNotificationsClick: () -> Unit = {}) {
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(
-                        imageVector = Icons.Default.AccountBox,
+                        imageVector = Icons.Default.AddPhotoAlternate,
                         contentDescription = null,
                         modifier = Modifier.size(48.dp),
                         tint = MaterialTheme.colorScheme.primary
@@ -123,8 +152,8 @@ fun EventCreateScreen(onNotificationsClick: () -> Unit = {}) {
             )
 
             OutlinedTextField(
-                value = "",
-                onValueChange = {},
+                value = eventName,
+                onValueChange = { eventName = it },
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text("Event Name") },
                 shape = RoundedCornerShape(12.dp),
@@ -132,8 +161,8 @@ fun EventCreateScreen(onNotificationsClick: () -> Unit = {}) {
             )
 
             OutlinedTextField(
-                value = "",
-                onValueChange = {},
+                value = description,
+                onValueChange = { description = it },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(120.dp),
@@ -142,54 +171,86 @@ fun EventCreateScreen(onNotificationsClick: () -> Unit = {}) {
                 colors = textFieldColors
             )
 
-            OutlinedTextField(
-                value = "Category",
-                onValueChange = {},
-                modifier = Modifier.fillMaxWidth(),
-                trailingIcon = { Icon(Icons.Default.KeyboardArrowDown, contentDescription = null) },
-                shape = RoundedCornerShape(12.dp),
-                readOnly = true,
-                colors = textFieldColors
-            )
+            // Category Dropdown
+            var expanded by remember { mutableStateOf(false) }
+            val categories = listOf("Meetup", "Dinner", "Party", "Workshop", "Other")
+            Box {
+                OutlinedTextField(
+                    value = category,
+                    onValueChange = {},
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Category") },
+                    trailingIcon = { 
+                        IconButton(onClick = { expanded = true }) {
+                            Icon(Icons.Default.KeyboardArrowDown, contentDescription = null)
+                        }
+                    },
+                    shape = RoundedCornerShape(12.dp),
+                    readOnly = true,
+                    colors = textFieldColors,
+                    enabled = false
+                )
+                Box(modifier = Modifier.matchParentSize().clickable { expanded = true })
+                DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                    categories.forEach { cat ->
+                        DropdownMenuItem(
+                            text = { Text(cat) },
+                            onClick = {
+                                category = cat
+                                expanded = false
+                            }
+                        )
+                    }
+                }
+            }
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                OutlinedTextField(
-                    value = "mm/dd/yy",
-                    onValueChange = {},
-                    modifier = Modifier.weight(1f),
-                    label = { Text("Date") },
-                    leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = null) },
-                    shape = RoundedCornerShape(12.dp),
-                    readOnly = true,
-                    colors = textFieldColors
-                )
-                OutlinedTextField(
-                    value = "--:-- --",
-                    onValueChange = {},
-                    modifier = Modifier.weight(1f),
-                    label = { Text("Time") },
-                    leadingIcon = { Icon(Icons.Default.Notifications, contentDescription = null) },
-                    shape = RoundedCornerShape(12.dp),
-                    readOnly = true,
-                    colors = textFieldColors
-                )
+                Box(modifier = Modifier.weight(1f)) {
+                    OutlinedTextField(
+                        value = dateText,
+                        onValueChange = {},
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Date") },
+                        leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = null) },
+                        shape = RoundedCornerShape(12.dp),
+                        readOnly = true,
+                        colors = textFieldColors,
+                        enabled = false
+                    )
+                    Box(modifier = Modifier.matchParentSize().clickable { datePickerDialog.show() })
+                }
+
+                Box(modifier = Modifier.weight(1f)) {
+                    OutlinedTextField(
+                        value = timeText,
+                        onValueChange = {},
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Time") },
+                        leadingIcon = { Icon(Icons.Default.AccessTime, contentDescription = null) },
+                        shape = RoundedCornerShape(12.dp),
+                        readOnly = true,
+                        colors = textFieldColors,
+                        enabled = false
+                    )
+                    Box(modifier = Modifier.matchParentSize().clickable { timePickerDialog.show() })
+                }
             }
 
             OutlinedTextField(
-                value = "Enter address or pick on map",
-                onValueChange = {},
+                value = address,
+                onValueChange = { address = it },
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text("Location") },
+                placeholder = { Text("Enter address or pick on map") },
                 leadingIcon = { Icon(Icons.Default.LocationOn, contentDescription = null) },
                 shape = RoundedCornerShape(12.dp),
-                readOnly = true,
                 colors = textFieldColors
             )
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 OutlinedTextField(
-                    value = "5",
-                    onValueChange = {},
+                    value = minPeople,
+                    onValueChange = { if (it.all { c -> c.isDigit() }) minPeople = it },
                     modifier = Modifier.weight(1f),
                     label = { Text("Min People") },
                     leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
@@ -197,8 +258,8 @@ fun EventCreateScreen(onNotificationsClick: () -> Unit = {}) {
                     colors = textFieldColors
                 )
                 OutlinedTextField(
-                    value = "30",
-                    onValueChange = {},
+                    value = maxPeople,
+                    onValueChange = { if (it.all { c -> c.isDigit() }) maxPeople = it },
                     modifier = Modifier.weight(1f),
                     label = { Text("Max People") },
                     leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
@@ -215,10 +276,13 @@ fun EventCreateScreen(onNotificationsClick: () -> Unit = {}) {
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip("Food")
-                    FilterChip("Drinks")
-                    FilterChip("Both")
-                    FilterChip("None", isSelected = true)
+                    listOf("Food", "Drinks", "Both", "None").forEach { option ->
+                        FilterChip(
+                            text = option,
+                            isSelected = foodOption == option,
+                            onClick = { foodOption = option }
+                        )
+                    }
                 }
             }
 
@@ -238,27 +302,60 @@ fun EventCreateScreen(onNotificationsClick: () -> Unit = {}) {
                         Text("Private Event", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                         Text("Only invited people can join", fontSize = 12.sp, color = Color.Gray)
                     }
-                    var checked by remember { mutableStateOf(false) }
-                    Switch(checked = checked, onCheckedChange = { checked = it })
+                    Switch(checked = isPrivate, onCheckedChange = { isPrivate = it })
                 }
             }
 
-            Button(
-                onClick = { },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                shape = RoundedCornerShape(28.dp)
-            ) {
-                Text("Create Event", color = Color.White, fontWeight = FontWeight.Bold)
+            if (isLoading) {
+                CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
+            } else {
+                Button(
+                    onClick = {
+                        if (eventName.isBlank() || address.isBlank() || dateText == "mm/dd/yy") {
+                            Toast.makeText(context, "Please fill in all required fields", Toast.LENGTH_SHORT).show()
+                            return@Button
+                        }
+                        
+                        isLoading = true
+                        val newEvent = Event(
+                            title = eventName,
+                            description = description,
+                            category = category,
+                            address = address,
+                            minParticipants = minPeople.toIntOrNull() ?: 0,
+                            maxParticipants = maxPeople.toIntOrNull(),
+                            foodOption = foodOption,
+                            isPublic = !isPrivate,
+                            timestamp = timestamp,
+                            location = GeoPoint(0.0, 0.0)
+                        )
+                        
+                        viewModel.createEvent(newEvent, currentUser?.name ?: "Anonymous")
+                        Toast.makeText(context, "Event created successfully!", Toast.LENGTH_LONG).show()
+                        
+                        // Reset
+                        eventName = ""
+                        description = ""
+                        address = ""
+                        dateText = "mm/dd/yy"
+                        timeText = "--:-- --"
+                        isLoading = false
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                    shape = RoundedCornerShape(28.dp)
+                ) {
+                    Text("Create Event", color = Color.White, fontWeight = FontWeight.Bold)
+                }
             }
         }
     }
 }
 
 @Composable
-fun FilterChip(text: String, isSelected: Boolean = false) {
+fun FilterChip(text: String, isSelected: Boolean = false, onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .background(
@@ -270,6 +367,7 @@ fun FilterChip(text: String, isSelected: Boolean = false) {
                 color = if (isSelected) MaterialTheme.colorScheme.primary else Color.LightGray.copy(alpha = 0.5f),
                 shape = RoundedCornerShape(16.dp)
             )
+            .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
         Text(
