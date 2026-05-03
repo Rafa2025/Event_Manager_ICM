@@ -2,6 +2,7 @@ package pt.ua.EventManager.data
 
 import com.google.firebase.firestore.GeoPoint
 import com.google.firebase.firestore.DocumentId
+import com.google.firebase.firestore.PropertyName
 
 data class Event(
     @DocumentId 
@@ -19,5 +20,8 @@ data class Event(
     val minParticipants: Int = 0,
     val maxParticipants: Int? = null, 
     val foodOption: String = "None",
-    val isPublic: Boolean = true 
+    
+    @get:PropertyName("isPublic")
+    @set:PropertyName("isPublic")
+    var isPublic: Boolean = true
 )

@@ -20,6 +20,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.google.android.libraries.places.api.Places
 import kotlinx.coroutines.launch
 import pt.ua.EventManager.data.Event
 import pt.ua.EventManager.ui.navigation.Screen
@@ -30,6 +31,12 @@ import pt.ua.EventManager.ui.viewmodels.UserViewModel
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Initialize Places SDK
+        if (!Places.isInitialized()) {
+            Places.initialize(applicationContext, "AIzaSyCGatbKuPNH7AD0asDTywWzGfZg0DA73w8")
+        }
+
         enableEdgeToEdge()
         setContent {
             val userViewModel: UserViewModel = viewModel()
@@ -132,7 +139,16 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             )
-                            Screen.EventMap -> EventMapScreen(onNotificationsClick = { onNotificationsClick() })
+                            Screen.EventMap -> EventMapScreen(
+                                onNotificationsClick = { onNotificationsClick() },
+                                onEventClick = { event ->
+                                    selectedEvent = event
+                                    previousPageIndex = pagerState.currentPage
+                                    scope.launch {
+                                        pagerState.scrollToPage(allScreens.indexOf(Screen.EventDetails))
+                                    }
+                                }
+                            )
                             Screen.EventCreate -> {
                                 if (currentUser == null) {
                                     LoginRequiredScreen(

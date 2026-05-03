@@ -1,11 +1,9 @@
 package pt.ua.EventManager.ui.screens
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -23,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
 import pt.ua.EventManager.R
 import pt.ua.EventManager.data.Event
 import pt.ua.EventManager.ui.viewmodels.EventViewModel
@@ -36,7 +35,9 @@ fun HomeScreen(
     onEventClick: (Event) -> Unit = {},
     viewModel: EventViewModel = viewModel()
 ) {
-    val events by viewModel.events.collectAsState()
+    val allEvents by viewModel.events.collectAsState()
+    // Filter out private events
+    val publicEvents = allEvents.filter { it.isPublic }
 
     Scaffold(
         topBar = {
@@ -69,7 +70,7 @@ fun HomeScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             contentPadding = PaddingValues(vertical = 16.dp)
         ) {
-            if (events.isEmpty()) {
+            if (publicEvents.isEmpty()) {
                 item {
                     Box(
                         modifier = Modifier
@@ -85,13 +86,13 @@ fun HomeScreen(
                                 tint = Color.LightGray
                             )
                             Spacer(modifier = Modifier.height(16.dp))
-                            Text("No events found.", color = Color.Gray)
+                            Text("No public events found.", color = Color.Gray)
                         }
                     }
                 }
             }
 
-            items(events) { event ->
+            items(publicEvents) { event ->
                 EventCard(event, onClick = { onEventClick(event) })
             }
         }
@@ -113,12 +114,22 @@ fun EventCard(event: Event, onClick: () -> Unit) {
     ) {
         Column {
             Box(modifier = Modifier.fillMaxWidth().height(180.dp)) {
-                Image(
-                    painter = painterResource(id = R.drawable.ic_launcher_background),
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
-                )
+                if (event.imageUrl != null) {
+                    AsyncImage(
+                        model = event.imageUrl,
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop,
+                        placeholder = painterResource(id = R.drawable.ic_launcher_background)
+                    )
+                } else {
+                    AsyncImage(
+                        model = "https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                }
             }
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
@@ -142,7 +153,7 @@ fun EventCard(event: Event, onClick: () -> Unit) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Host: ", color = Color.Gray, fontSize = 14.sp)
                     Text(
-                        event.organizerName, // MOSTRA O NOME REAL DO HOST AQUI
+                        event.organizerName,
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp,
                         color = MaterialTheme.colorScheme.onSurface
