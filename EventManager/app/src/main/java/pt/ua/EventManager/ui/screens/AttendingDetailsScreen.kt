@@ -22,7 +22,7 @@ import java.util.*
 @Composable
 fun AttendingDetailsScreen(event: Event?, onBack: () -> Unit) {
     if (event == null) return
-    
+
     val sdf = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
     val dateString = sdf.format(Date(event.timestamp))
 
@@ -32,7 +32,11 @@ fun AttendingDetailsScreen(event: Event?, onBack: () -> Unit) {
                 title = { Text("Attending Details", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = Color.White
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -53,12 +57,18 @@ fun AttendingDetailsScreen(event: Event?, onBack: () -> Unit) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f))
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                )
             ) {
                 Column(modifier = Modifier.padding(24.dp)) {
                     Text(event.title, fontSize = 24.sp, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text("You are attending", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                    Text(
+                        "You are attending",
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
 
@@ -70,13 +80,14 @@ fun AttendingDetailsScreen(event: Event?, onBack: () -> Unit) {
                 CommonInfoRow(Icons.Default.Groups, "${event.participantsUids.size} people joining")
             }
 
-            EventChatSection()
-
-            Spacer(modifier = Modifier.height(20.dp))
+            // ── Chat Section ───────────────────────────────────────────────
+            EventChatSection(eventId = event.id)
 
             Button(
                 onClick = { },
-                modifier = Modifier.fillMaxWidth().height(56.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD00000)),
                 shape = RoundedCornerShape(28.dp)
             ) {

@@ -13,6 +13,7 @@ import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import pt.ua.EventManager.data.Event
+import pt.ua.EventManager.data.ChatMessage
 import java.util.UUID
 
 class EventViewModel : ViewModel() {
@@ -43,24 +44,10 @@ class EventViewModel : ViewModel() {
                     val fetchedEvents = mutableListOf<Event>()
                     for (doc in snapshot.documents) {
                         try {
-                            val event = Event(
-                                id = doc.id,
-                                title = doc.getString("title") ?: "",
-                                description = doc.getString("description") ?: "",
-                                category = doc.getString("category") ?: "Other",
-                                address = doc.getString("address") ?: "",
-                                timestamp = parseTimestamp(doc.get("timestamp")),
-                                imageUrl = doc.getString("imageUrl"),
-                                organizerUid = doc.getString("organizerUid") ?: "",
-                                organizerName = doc.getString("organizerName") ?: "Anonymous",
-                                participantsUids = @Suppress("UNCHECKED_CAST") (doc.get("participantsUids") as? List<String>) ?: emptyList(),
-                                minParticipants = doc.getLong("minParticipants")?.toInt() ?: 0,
-                                maxParticipants = doc.getLong("maxParticipants")?.toInt(),
-                                foodOption = doc.getString("foodOption") ?: "None",
-                                isPublic = doc.getBoolean("isPublic") ?: true,
-                                location = doc.getGeoPoint("location") ?: GeoPoint(0.0, 0.0)
-                            )
-                            fetchedEvents.add(event)
+                            val event = doc.toObject(Event::class.java)?.copy(id = doc.id)
+                            if (event != null) {
+                                fetchedEvents.add(event)
+                            }
                         } catch (ex: Exception) {
                             Log.e("EventViewModel", "Error parsing event document: ${doc.id}", ex)
                         }
@@ -177,6 +164,33 @@ class EventViewModel : ViewModel() {
                     onComplete(false, task.exception?.localizedMessage ?: "Error leaving event")
                 }
             }
+    }
+
+    // Chat functionality
+    fun sendMessage(eventId: String, messageText: String, senderName: String) {
+        val uid = currentUserUid ?: return
+        val chatMessage = ChatMessage(
+            senderUid = uid,
+            senderName = senderName,
+            message = messageText
+        )
+        db.collection("events").document(eventId)
+            .collection("chat")
+            .add(chatMessage)
+    }
+
+    fun getChatMessages(eventId: String): StateFlow<List<ChatMessage>> {
+        val messagesFlow = MutableStateFlow<List<ChatMessage>>(emptyList())
+        db.collection("events").document(eventId)
+            .collection("chat")
+            .orderBy("timestamp", Query.Direction.ASCENDING)
+            .addSnapshotListener { snapshot, e ->
+                if (e != null) return@addSnapshotListener
+                if (snapshot != null) {
+                    messagesFlow.value = snapshot.toObjects(ChatMessage::class.java)
+                }
+            }
+        return messagesFlow
     }
 
     fun deleteAllEvents(onComplete: (Boolean) -> Unit) {
