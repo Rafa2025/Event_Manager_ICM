@@ -11,6 +11,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -28,6 +29,9 @@ import pt.ua.EventManager.ui.navigation.Screen
 import pt.ua.EventManager.ui.screens.*
 import pt.ua.EventManager.ui.theme.EventManagerTheme
 import pt.ua.EventManager.ui.viewmodels.UserViewModel
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.toMutableStateList
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -58,23 +62,35 @@ class MainActivity : ComponentActivity() {
                         Screen.HostingDetails, 
                         Screen.AttendingDetails,
                         Screen.QRCode,
-                        Screen.QRScanner
+                        Screen.QRScanner,
+                        Screen.ParticipantsList
                     )
                 }
 
-                val pagerState = rememberPagerState(pageCount = { allScreens.size })
+                var currentScreenIndex by rememberSaveable { mutableIntStateOf(0) }
+
+                val pagerState = rememberPagerState(
+                    initialPage = currentScreenIndex, // Add this line
+                    pageCount = { allScreens.size }
+                )
                 val scope = rememberCoroutineScope()
                 
                 // Track navigation history and current logical state
-                val navigationStack = remember { mutableStateListOf<Int>() }
-                var currentScreenIndex by remember { mutableIntStateOf(0) }
+                val navigationStack = rememberSaveable(saver = listSaver(
+                    save = { it.toList() },
+                    restore = { it.toMutableStateList() }
+                )) { mutableStateListOf<Int>() }
+
                 
-                var selectedEvent by remember { mutableStateOf<Event?>(null) }
-                var selectedMyEvent by remember { mutableStateOf<Event?>(null) }
+                var selectedEvent by rememberSaveable { mutableStateOf<Event?>(null) }
+                var selectedMyEvent by rememberSaveable { mutableStateOf<Event?>(null) }
 
                 val navigateTo = { nextIndex: Int ->
                     if (currentScreenIndex != nextIndex) {
-                        navigationStack.add(currentScreenIndex)
+                        // Prevent adding the same screen multiple times in a row
+                        if (navigationStack.isEmpty() || navigationStack.last() != currentScreenIndex) {
+                            navigationStack.add(currentScreenIndex)
+                        }
                         currentScreenIndex = nextIndex
                         scope.launch {
                             pagerState.scrollToPage(nextIndex)
@@ -85,9 +101,11 @@ class MainActivity : ComponentActivity() {
                 val navigateBack = {
                     if (navigationStack.isNotEmpty()) {
                         val lastIndex = navigationStack.removeAt(navigationStack.size - 1)
-                        currentScreenIndex = lastIndex
-                        scope.launch {
-                            pagerState.scrollToPage(lastIndex)
+                        if (lastIndex in allScreens.indices) { // Extra safety check
+                            currentScreenIndex = lastIndex
+                            scope.launch {
+                                pagerState.scrollToPage(lastIndex)
+                            }
                         }
                     }
                 }
@@ -136,13 +154,13 @@ class MainActivity : ComponentActivity() {
                                         alwaysShowLabel = false,
                                         onClick = {
                                             if (!isSelected) {
-                                                navigationStack.clear()
+                                                navigationStack.clear() // Reset history when switching main tabs
                                                 currentScreenIndex = index
                                                 scope.launch {
                                                     pagerState.scrollToPage(index)
                                                 }
                                             }
-                                        },
+                                        } ,
                                         colors = NavigationBarItemDefaults.colors(
                                             selectedIconColor = MaterialTheme.colorScheme.primary,
                                             selectedTextColor = MaterialTheme.colorScheme.primary,
@@ -238,6 +256,9 @@ class MainActivity : ComponentActivity() {
                                 onBack = { navigateBack() },
                                 onShowQR = {
                                     navigateTo(allScreens.indexOf(Screen.QRCode))
+                                },
+                                onParticipantsClick = {
+                                    navigateTo(allScreens.indexOf(Screen.ParticipantsList))
                                 }
                             )
                             Screen.AttendingDetails -> AttendingDetailsScreen(
@@ -254,7 +275,16 @@ class MainActivity : ComponentActivity() {
                             Screen.QRScanner -> QRScannerScreen(
                                 event = selectedMyEvent,
                                 onBack = { navigateBack() },
-                                onScanResult = { /* Success handled in screen */ }
+                                onScanResult = { success ->
+                                    if (success) {
+                                        navigateBack() // Automatically go back to AttendingDetails on success
+                                    }
+                                }
+                            )
+                            Screen.ParticipantsList -> ParticipantsListScreen(
+                                event = selectedMyEvent,
+                                onBack = { navigateBack() },
+                                userViewModel = userViewModel
                             )
                         }
                     }

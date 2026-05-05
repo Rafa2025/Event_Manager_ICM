@@ -24,7 +24,8 @@ import java.util.*
 fun HostingDetailsScreen(
     event: Event?, 
     onBack: () -> Unit,
-    onShowQR: () -> Unit
+    onShowQR: () -> Unit,
+    onParticipantsClick: () -> Unit
 ) {
     if (event == null) return
 
@@ -95,7 +96,9 @@ fun HostingDetailsScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    ManagementButton(Modifier.weight(1f), Icons.Default.People, "Participants") {}
+                    ManagementButton(Modifier.weight(1f), Icons.Default.People, "Participants") {
+                        onParticipantsClick()
+                    }
                     ManagementButton(Modifier.weight(1f), Icons.Default.QrCode, "Check-in QR") {
                         onShowQR()
                     }

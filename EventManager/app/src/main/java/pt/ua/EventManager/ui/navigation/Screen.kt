@@ -5,6 +5,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material.icons.filled.QrCodeScanner
@@ -24,6 +25,7 @@ sealed class Screen(val route: String, val title: String, val icon: Any) {
     
     object QRCode : Screen("qr_code", "Event QR", Icons.Default.QrCode)
     object QRScanner : Screen("qr_scanner", "Scanner", Icons.Default.QrCodeScanner)
+    object ParticipantsList : Screen("participants_list", "Participants", Icons.Default.People)
 }
 
 val navItems = listOf(
@@ -37,5 +39,6 @@ val navItems = listOf(
     Screen.HostingDetails,
     Screen.AttendingDetails,
     Screen.QRCode,
-    Screen.QRScanner
+    Screen.QRScanner,
+    Screen.ParticipantsList
 )

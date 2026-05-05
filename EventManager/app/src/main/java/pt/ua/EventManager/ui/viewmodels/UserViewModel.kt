@@ -33,6 +33,15 @@ class UserViewModel : ViewModel() {
         }
     }
 
+    fun getUserName(uid: String, onResult: (String) -> Unit) {
+        db.collection("users").document(uid).get().addOnSuccessListener { snapshot ->
+            val name = snapshot.getString("name") ?: "Unknown User"
+            onResult(name)
+        }.addOnFailureListener {
+            onResult("Error loading name")
+        }
+    }
+
     fun signUp(name: String, email: String, password: String, onResult: (Boolean, String?) -> Unit) {
         auth.createUserWithEmailAndPassword(email, password).addOnCompleteListener { task ->
             if (task.isSuccessful) {
