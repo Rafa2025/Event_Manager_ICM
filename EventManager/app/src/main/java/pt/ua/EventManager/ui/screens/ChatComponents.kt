@@ -133,7 +133,7 @@ fun ChatBubble(message: ChatMessage, isOwn: Boolean, hostUid: String) {
     val timeString = message.timestamp?.let { timeSdf.format(it) } ?: ""
 
     val isHost = message.senderUid == hostUid
-    val senderLabel = if (isHost) "host - ${message.senderName}" else message.senderName
+    val senderLabel = if (isHost) "Host - ${message.senderName}" else "Participant - ${message.senderName}"
 
     Column(
         modifier = Modifier.fillMaxWidth(),
