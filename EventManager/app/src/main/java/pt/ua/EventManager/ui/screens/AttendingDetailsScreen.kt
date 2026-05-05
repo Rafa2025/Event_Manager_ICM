@@ -8,7 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -20,7 +20,11 @@ import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AttendingDetailsScreen(event: Event?, onBack: () -> Unit) {
+fun AttendingDetailsScreen(
+    event: Event?, 
+    onBack: () -> Unit,
+    onScanQR: () -> Unit
+) {
     if (event == null) return
 
     val sdf = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
@@ -72,6 +76,22 @@ fun AttendingDetailsScreen(event: Event?, onBack: () -> Unit) {
                 }
             }
 
+            // ── Check-in Section ───────────────────────────────────────────
+            Column {
+                Text("Check-in", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Spacer(modifier = Modifier.height(12.dp))
+                Button(
+                    onClick = onScanQR,
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                ) {
+                    Icon(Icons.Default.QrCodeScanner, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Scan Event QR Code", fontWeight = FontWeight.Bold)
+                }
+            }
+
             Column {
                 Text("Event Details", fontWeight = FontWeight.Bold, fontSize = 18.sp)
                 Spacer(modifier = Modifier.height(12.dp))
@@ -81,7 +101,7 @@ fun AttendingDetailsScreen(event: Event?, onBack: () -> Unit) {
             }
 
             // ── Chat Section ───────────────────────────────────────────────
-            EventChatSection(eventId = event.id)
+            EventChatSection(eventId = event.id, hostUid = event.organizerUid)
 
             Button(
                 onClick = { },

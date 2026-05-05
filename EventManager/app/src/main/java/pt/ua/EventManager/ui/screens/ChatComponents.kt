@@ -28,6 +28,7 @@ import java.util.*
 @Composable
 fun EventChatSection(
     eventId: String,
+    hostUid: String = "",
     viewModel: EventViewModel = viewModel(),
     userViewModel: UserViewModel = viewModel()
 ) {
@@ -46,55 +47,60 @@ fun EventChatSection(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(max = 400.dp) // Limit height if embedded
+            .heightIn(max = 450.dp)
     ) {
         Text("Event Chat", fontWeight = FontWeight.Bold, fontSize = 18.sp)
         Spacer(modifier = Modifier.height(12.dp))
         
         Card(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Box(modifier = Modifier.weight(1f, fill = false)) {
-                    LazyColumn(
-                        state = listState,
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(messages) { msg ->
-                            val isMe = msg.senderUid == viewModel.currentUserUid
-                            ChatMessageItem(
-                                sender = msg.senderName,
-                                message = msg.message,
-                                time = msg.timestamp?.let { 
-                                    SimpleDateFormat("h:mm a", Locale.getDefault()).format(it) 
-                                } ?: "",
-                                isMe = isMe
-                            )
+                Box(modifier = Modifier.height(280.dp)) {
+                    if (messages.isEmpty()) {
+                        Text(
+                            text = "No messages yet. Be the first to say something!",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 13.sp,
+                            modifier = Modifier.align(Alignment.Center)
+                        )
+                    } else {
+                        LazyColumn(
+                            state = listState,
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(messages) { msg ->
+                                val isMe = msg.senderUid == (viewModel.currentUserUid ?: "")
+                                ChatBubble(
+                                    message = msg,
+                                    isOwn = isMe,
+                                    hostUid = hostUid
+                                )
+                            }
                         }
                     }
                 }
                 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(12.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f))
+                Spacer(modifier = Modifier.height(12.dp))
                 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    TextField(
+                    OutlinedTextField(
                         value = messageText,
                         onValueChange = { messageText = it },
-                        placeholder = { Text("Type a message...", fontSize = 14.sp) },
+                        placeholder = { Text("Write a message…", fontSize = 14.sp) },
                         modifier = Modifier.weight(1f),
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor = Color.Transparent,
-                            unfocusedContainerColor = Color.Transparent,
-                            focusedIndicatorColor = Color.Transparent,
-                            unfocusedIndicatorColor = Color.Transparent
-                        ),
-                        maxLines = 3
+                        shape = RoundedCornerShape(24.dp),
+                        singleLine = true,
+                        enabled = currentUser != null
                     )
                     IconButton(
                         onClick = {
@@ -103,12 +109,16 @@ fun EventChatSection(
                                 messageText = ""
                             }
                         },
-                        enabled = messageText.isNotBlank()
+                        enabled = messageText.isNotBlank() && currentUser != null,
+                        colors = IconButtonDefaults.iconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = Color.White,
+                            disabledContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+                        )
                     ) {
                         Icon(
                             Icons.AutoMirrored.Filled.Send,
-                            contentDescription = "Send",
-                            tint = if (messageText.isNotBlank()) MaterialTheme.colorScheme.primary else Color.Gray
+                            contentDescription = "Send"
                         )
                     }
                 }
@@ -118,50 +128,58 @@ fun EventChatSection(
 }
 
 @Composable
-fun ChatMessageItem(sender: String, message: String, time: String, isMe: Boolean) {
+fun ChatBubble(message: ChatMessage, isOwn: Boolean, hostUid: String) {
+    val timeSdf = SimpleDateFormat("HH:mm", Locale.getDefault())
+    val timeString = message.timestamp?.let { timeSdf.format(it) } ?: ""
+
+    val isHost = message.senderUid == hostUid
+    val senderLabel = if (isHost) "host - ${message.senderName}" else message.senderName
+
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        horizontalAlignment = if (isMe) Alignment.End else Alignment.Start
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = if (isOwn) Alignment.End else Alignment.Start
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            if (!isMe) {
-                Box(
-                    modifier = Modifier
-                        .size(24.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(sender.take(1).uppercase(), color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-            }
-            
-            Surface(
-                color = if (isMe) MaterialTheme.colorScheme.primary else Color.White,
-                shape = RoundedCornerShape(
-                    topStart = 12.dp,
-                    topEnd = 12.dp,
-                    bottomStart = if (isMe) 12.dp else 0.dp,
-                    bottomEnd = if (isMe) 0.dp else 12.dp
-                ),
-                tonalElevation = 1.dp
-            ) {
+        if (!isOwn) {
+            Text(
+                text = senderLabel,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = if (isHost) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary,
+                modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 2.dp)
+            )
+        }
+        Surface(
+            shape = RoundedCornerShape(
+                topStart = 16.dp,
+                topEnd = 16.dp,
+                bottomStart = if (isOwn) 16.dp else 4.dp,
+                bottomEnd = if (isOwn) 4.dp else 16.dp
+            ),
+            color = if (isOwn)
+                MaterialTheme.colorScheme.primary
+            else
+                MaterialTheme.colorScheme.surfaceVariant,
+            tonalElevation = 2.dp
+        ) {
+            Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
                 Text(
-                    text = message,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    text = message.message,
                     fontSize = 14.sp,
-                    color = if (isMe) Color.White else Color.Black
+                    color = if (isOwn) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                if (timeString.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = timeString,
+                        fontSize = 10.sp,
+                        color = if (isOwn)
+                            Color.White.copy(alpha = 0.7f)
+                        else
+                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        modifier = Modifier.align(Alignment.End)
+                    )
+                }
             }
         }
-        Text(
-            text = time,
-            fontSize = 10.sp,
-            color = Color.Gray,
-            modifier = Modifier.padding(top = 2.dp, start = if (isMe) 0.dp else 32.dp)
-        )
     }
 }

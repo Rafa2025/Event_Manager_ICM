@@ -6,6 +6,8 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.QrCode
+import androidx.compose.material.icons.filled.QrCodeScanner
 import pt.ua.EventManager.R
 
 sealed class Screen(val route: String, val title: String, val icon: Any) {
@@ -19,6 +21,9 @@ sealed class Screen(val route: String, val title: String, val icon: Any) {
     object EventDetails : Screen("event_details", "Event Details", Icons.Default.Info)
     object HostingDetails : Screen("hosting_details", "Hosting Details", Icons.Default.Info)
     object AttendingDetails : Screen("attending_details", "Attending Details", Icons.Default.Info)
+    
+    object QRCode : Screen("qr_code", "Event QR", Icons.Default.QrCode)
+    object QRScanner : Screen("qr_scanner", "Scanner", Icons.Default.QrCodeScanner)
 }
 
 val navItems = listOf(
@@ -30,5 +35,7 @@ val navItems = listOf(
     Screen.Notifications,
     Screen.EventDetails,
     Screen.HostingDetails,
-    Screen.AttendingDetails
+    Screen.AttendingDetails,
+    Screen.QRCode,
+    Screen.QRScanner
 )

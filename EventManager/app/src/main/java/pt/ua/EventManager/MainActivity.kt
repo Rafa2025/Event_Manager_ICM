@@ -2,6 +2,7 @@ package pt.ua.EventManager
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.*
@@ -32,7 +33,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // Initialize Places SDK
         if (!Places.isInitialized()) {
             Places.initialize(applicationContext, "AIzaSyCGatbKuPNH7AD0asDTywWzGfZg0DA73w8")
         }
@@ -51,102 +51,129 @@ class MainActivity : ComponentActivity() {
                     Screen.Profile
                 )
 
-                val allScreens = navBarItems + Screen.Notifications + Screen.EventDetails + Screen.HostingDetails + Screen.AttendingDetails
+                val allScreens = remember {
+                    navBarItems + listOf(
+                        Screen.Notifications, 
+                        Screen.EventDetails, 
+                        Screen.HostingDetails, 
+                        Screen.AttendingDetails,
+                        Screen.QRCode,
+                        Screen.QRScanner
+                    )
+                }
 
                 val pagerState = rememberPagerState(pageCount = { allScreens.size })
                 val scope = rememberCoroutineScope()
                 
-                var previousPageIndex by remember { mutableIntStateOf(0) }
+                // Track navigation history and current logical state
+                val navigationStack = remember { mutableStateListOf<Int>() }
+                var currentScreenIndex by remember { mutableIntStateOf(0) }
+                
                 var selectedEvent by remember { mutableStateOf<Event?>(null) }
                 var selectedMyEvent by remember { mutableStateOf<Event?>(null) }
 
+                val navigateTo = { nextIndex: Int ->
+                    if (currentScreenIndex != nextIndex) {
+                        navigationStack.add(currentScreenIndex)
+                        currentScreenIndex = nextIndex
+                        scope.launch {
+                            pagerState.scrollToPage(nextIndex)
+                        }
+                    }
+                }
+
+                val navigateBack = {
+                    if (navigationStack.isNotEmpty()) {
+                        val lastIndex = navigationStack.removeAt(navigationStack.size - 1)
+                        currentScreenIndex = lastIndex
+                        scope.launch {
+                            pagerState.scrollToPage(lastIndex)
+                        }
+                    }
+                }
+
+                // Handle system back button
+                BackHandler(enabled = navigationStack.isNotEmpty()) {
+                    navigateBack()
+                }
+
                 Scaffold(
                     bottomBar = {
-                        NavigationBar(
-                            containerColor = MaterialTheme.colorScheme.surface,
-                            tonalElevation = 8.dp,
-                        ) {
-                            navBarItems.forEachIndexed { index, screen ->
-                                val isSelected = if (pagerState.currentPage >= navBarItems.size) {
-                                    index == previousPageIndex
-                                } else {
-                                    pagerState.currentPage == index
-                                }
+                        // Use currentScreenIndex for stable UI state
+                        if (currentScreenIndex < navBarItems.size) {
+                            NavigationBar(
+                                containerColor = MaterialTheme.colorScheme.surface,
+                                tonalElevation = 8.dp,
+                            ) {
+                                navBarItems.forEachIndexed { index, screen ->
+                                    val isSelected = currentScreenIndex == index
 
-                                NavigationBarItem(
-                                    icon = {
-                                        val iconModifier = Modifier.size(24.dp)
-                                        when (val icon = screen.icon) {
-                                            is ImageVector -> Icon(
-                                                imageVector = icon,
-                                                contentDescription = null,
-                                                modifier = iconModifier
+                                    NavigationBarItem(
+                                        icon = {
+                                            val iconModifier = Modifier.size(24.dp)
+                                            when (val icon = screen.icon) {
+                                                is ImageVector -> Icon(
+                                                    imageVector = icon,
+                                                    contentDescription = null,
+                                                    modifier = iconModifier
+                                                )
+                                                is Int -> Icon(
+                                                    painter = painterResource(id = icon),
+                                                    contentDescription = null,
+                                                    modifier = iconModifier
+                                                )
+                                                else -> {}
+                                            }
+                                        },
+                                        label = {
+                                            Text(
+                                                text = screen.title,
+                                                fontSize = 10.sp,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                                             )
-                                            is Int -> Icon(
-                                                painter = painterResource(id = icon),
-                                                contentDescription = null,
-                                                modifier = iconModifier
-                                            )
-                                            else -> {}
-                                        }
-                                    },
-                                    label = {
-                                        Text(
-                                            text = screen.title,
-                                            fontSize = 10.sp,
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                        },
+                                        selected = isSelected,
+                                        alwaysShowLabel = false,
+                                        onClick = {
+                                            if (!isSelected) {
+                                                navigationStack.clear()
+                                                currentScreenIndex = index
+                                                scope.launch {
+                                                    pagerState.scrollToPage(index)
+                                                }
+                                            }
+                                        },
+                                        colors = NavigationBarItemDefaults.colors(
+                                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                                            unselectedIconColor = Color.Gray,
+                                            unselectedTextColor = Color.Gray,
+                                            indicatorColor = Color.Transparent
                                         )
-                                    },
-                                    selected = isSelected,
-                                    alwaysShowLabel = false,
-                                    onClick = {
-                                        scope.launch {
-                                            pagerState.scrollToPage(index)
-                                        }
-                                    },
-                                    colors = NavigationBarItemDefaults.colors(
-                                        selectedIconColor = MaterialTheme.colorScheme.primary,
-                                        selectedTextColor = MaterialTheme.colorScheme.primary,
-                                        unselectedIconColor = Color.Gray,
-                                        unselectedTextColor = Color.Gray,
-                                        indicatorColor = Color.Transparent
                                     )
-                                )
+                                }
                             }
                         }
                     }
                 ) { innerPadding ->
                     HorizontalPager(
                         state = pagerState,
-                        modifier = Modifier.padding(innerPadding),
+                        modifier = Modifier.padding(if (currentScreenIndex < navBarItems.size) innerPadding else PaddingValues(0.dp)),
                         userScrollEnabled = false
                     ) { page ->
-                        val onNotificationsClick = {
-                            previousPageIndex = pagerState.currentPage
-                            scope.launch {
-                                pagerState.scrollToPage(allScreens.indexOf(Screen.Notifications))
-                            }
-                        }
-
                         when (allScreens[page]) {
                             Screen.Home -> HomeScreen(
-                                onNotificationsClick = { onNotificationsClick() },
+                                onNotificationsClick = { navigateTo(allScreens.indexOf(Screen.Notifications)) },
                                 onEventClick = { event ->
                                     selectedEvent = event
-                                    previousPageIndex = pagerState.currentPage
-                                    scope.launch {
-                                        pagerState.scrollToPage(allScreens.indexOf(Screen.EventDetails))
-                                    }
+                                    navigateTo(allScreens.indexOf(Screen.EventDetails))
                                 }
                             )
                             Screen.EventMap -> EventMapScreen(
-                                onNotificationsClick = { onNotificationsClick() },
+                                onNotificationsClick = { navigateTo(allScreens.indexOf(Screen.Notifications)) },
                                 onEventClick = { event ->
                                     selectedEvent = event
-                                    previousPageIndex = pagerState.currentPage
-                                    scope.launch {
-                                        pagerState.scrollToPage(allScreens.indexOf(Screen.EventDetails))
-                                    }
+                                    navigateTo(allScreens.indexOf(Screen.EventDetails))
                                 }
                             )
                             Screen.EventCreate -> {
@@ -155,13 +182,16 @@ class MainActivity : ComponentActivity() {
                                         title = "Create Event",
                                         message = "You need to be logged in to create an event.",
                                         onLoginClick = {
+                                            navigationStack.clear()
+                                            val profileIndex = navBarItems.indexOf(Screen.Profile)
+                                            currentScreenIndex = profileIndex
                                             scope.launch {
-                                                pagerState.scrollToPage(navBarItems.indexOf(Screen.Profile))
+                                                pagerState.scrollToPage(profileIndex)
                                             }
                                         }
                                     )
                                 } else {
-                                    EventCreateScreen(onNotificationsClick = { onNotificationsClick() })
+                                    EventCreateScreen(onNotificationsClick = { navigateTo(allScreens.indexOf(Screen.Notifications)) })
                                 }
                             }
                             Screen.MyEvents -> {
@@ -170,21 +200,21 @@ class MainActivity : ComponentActivity() {
                                         title = "My Events",
                                         message = "Log in to see your hosted and joined events.",
                                         onLoginClick = {
+                                            navigationStack.clear()
+                                            val profileIndex = navBarItems.indexOf(Screen.Profile)
+                                            currentScreenIndex = profileIndex
                                             scope.launch {
-                                                pagerState.scrollToPage(navBarItems.indexOf(Screen.Profile))
+                                                pagerState.scrollToPage(profileIndex)
                                             }
                                         }
                                     )
                                 } else {
                                     MyEventsScreen(
-                                        onNotificationsClick = { onNotificationsClick() },
+                                        onNotificationsClick = { navigateTo(allScreens.indexOf(Screen.Notifications)) },
                                         onEventClick = { event, isHosting ->
                                             selectedMyEvent = event
-                                            previousPageIndex = pagerState.currentPage
-                                            scope.launch {
-                                                val route = if (isHosting) Screen.HostingDetails else Screen.AttendingDetails
-                                                pagerState.scrollToPage(allScreens.indexOf(route))
-                                            }
+                                            val route = if (isHosting) Screen.HostingDetails else Screen.AttendingDetails
+                                            navigateTo(allScreens.indexOf(route))
                                         }
                                     )
                                 }
@@ -192,40 +222,39 @@ class MainActivity : ComponentActivity() {
                             Screen.Profile -> {
                                 if (currentUser == null) {
                                     LoginScreen(userViewModel = userViewModel) {
-                                        // On login success, we stay on this page which will now show ProfileScreen
+                                        // Stay on page
                                     }
                                 } else {
-                                    ProfileScreen(onNotificationsClick = { onNotificationsClick() }, userViewModel = userViewModel)
+                                    ProfileScreen(onNotificationsClick = { navigateTo(allScreens.indexOf(Screen.Notifications)) }, userViewModel = userViewModel)
                                 }
                             }
-                            Screen.Notifications -> NotificationsScreen(onBack = {
-                                scope.launch {
-                                    pagerState.scrollToPage(previousPageIndex)
-                                }
-                            })
+                            Screen.Notifications -> NotificationsScreen(onBack = { navigateBack() })
                             Screen.EventDetails -> EventDetailsScreen(
                                 event = selectedEvent,
-                                onBack = {
-                                    scope.launch {
-                                        pagerState.scrollToPage(previousPageIndex)
-                                    }
-                                }
+                                onBack = { navigateBack() }
                             )
                             Screen.HostingDetails -> HostingDetailsScreen(
                                 event = selectedMyEvent,
-                                onBack = {
-                                    scope.launch {
-                                        pagerState.scrollToPage(previousPageIndex)
-                                    }
+                                onBack = { navigateBack() },
+                                onShowQR = {
+                                    navigateTo(allScreens.indexOf(Screen.QRCode))
                                 }
                             )
                             Screen.AttendingDetails -> AttendingDetailsScreen(
                                 event = selectedMyEvent,
-                                onBack = {
-                                    scope.launch {
-                                        pagerState.scrollToPage(previousPageIndex)
-                                    }
+                                onBack = { navigateBack() },
+                                onScanQR = {
+                                    navigateTo(allScreens.indexOf(Screen.QRScanner))
                                 }
+                            )
+                            Screen.QRCode -> EventQRCodeScreen(
+                                event = selectedMyEvent,
+                                onBack = { navigateBack() }
+                            )
+                            Screen.QRScanner -> QRScannerScreen(
+                                event = selectedMyEvent,
+                                onBack = { navigateBack() },
+                                onScanResult = { /* Success handled in screen */ }
                             )
                         }
                     }

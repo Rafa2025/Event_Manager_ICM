@@ -53,7 +53,7 @@ dependencies {
     implementation(libs.maps.compose)
     implementation(libs.google.places)
 
-    // Firebase (Versão Única e Consistente)
+    // Firebase
     implementation(platform("com.google.firebase:firebase-bom:33.9.0"))
     implementation("com.google.firebase:firebase-analytics")
     implementation("com.google.firebase:firebase-firestore")
@@ -62,6 +62,16 @@ dependencies {
 
     // Coil
     implementation(libs.coil.compose)
+
+    // QR Code & Barcode
+    implementation("com.google.zxing:core:3.5.3")
+    implementation("com.google.mlkit:barcode-scanning:17.3.0")
+    
+    // CameraX
+    val camerax_version = "1.4.1"
+    implementation("androidx.camera:camera-camera2:$camerax_version")
+    implementation("androidx.camera:camera-lifecycle:$camerax_version")
+    implementation("androidx.camera:camera-view:$camerax_version")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
