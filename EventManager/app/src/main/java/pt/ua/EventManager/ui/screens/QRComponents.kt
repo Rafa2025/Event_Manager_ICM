@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
@@ -43,6 +44,7 @@ import com.google.zxing.BarcodeFormat
 import com.google.zxing.WriterException
 import com.google.zxing.qrcode.QRCodeWriter
 import pt.ua.EventManager.data.Event
+import pt.ua.EventManager.ui.viewmodels.EventViewModel
 import java.util.concurrent.Executors
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -145,10 +147,16 @@ fun EventQRCodeScreen(event: Event?, onBack: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun QRScannerScreen(event: Event?, onBack: () -> Unit, onScanResult: (Boolean) -> Unit) {
+fun QRScannerScreen(
+    event: Event?, 
+    onBack: () -> Unit, 
+    onScanResult: (Boolean) -> Unit,
+    viewModel: EventViewModel = viewModel()
+) {
     if (event == null) return
     val context = LocalContext.current
     var isScanned by remember { mutableStateOf(false) }
+    var isProcessing by remember { mutableStateOf(false) }
 
     var hasCameraPermission by remember {
         mutableStateOf(
@@ -199,23 +207,38 @@ fun QRScannerScreen(event: Event?, onBack: () -> Unit, onScanResult: (Boolean) -
         ) {
             if (hasCameraPermission) {
                 CameraPreview(onBarcodeDetected = { barcodes ->
-                    if (!isScanned) {
+                    if (!isScanned && !isProcessing) {
                         val result = barcodes.firstOrNull()?.displayValue
                         if (result == "event_checkin:${event.id}") {
+                            isProcessing = true
                             isScanned = true
-                            Toast.makeText(context, "Check-in successful!", Toast.LENGTH_LONG).show()
-                            onScanResult(true)
-                            onBack()
+                            viewModel.checkInEvent(event.id) { success, error ->
+                                isProcessing = false
+                                if (success) {
+                                    Toast.makeText(context, "Check-in successful!", Toast.LENGTH_LONG).show()
+                                    onScanResult(true)
+                                } else {
+                                    Toast.makeText(context, error ?: "Check-in failed", Toast.LENGTH_SHORT).show()
+                                    isScanned = false
+                                }
+                            }
                         } else if (result != null && result.startsWith("event_checkin:")) {
-                            isScanned = true
                             Toast.makeText(context, "Invalid QR Code for this event", Toast.LENGTH_SHORT).show()
-                            isScanned = false 
                         }
                     }
                 })
             } else {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text("Requesting camera permission...", color = androidx.compose.ui.graphics.Color.Gray)
+                }
+            }
+            
+            if (isProcessing) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
                 }
             }
 

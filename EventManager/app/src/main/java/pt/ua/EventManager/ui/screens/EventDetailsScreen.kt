@@ -52,7 +52,8 @@ fun EventDetailsScreen(
     var isLoading by remember { mutableStateOf(false) }
 
     val sdf = SimpleDateFormat("MMM dd, yyyy • h:mm a", Locale.getDefault())
-    val dateString = sdf.format(Date(event.timestamp))
+    val timeSdf = SimpleDateFormat("h:mm a", Locale.getDefault())
+    val dateString = "${sdf.format(Date(event.timestamp))} - ${timeSdf.format(Date(event.endTimestamp))}"
 
     Scaffold(
         topBar = {

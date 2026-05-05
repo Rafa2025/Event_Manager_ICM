@@ -104,6 +104,37 @@ class EventViewModel : ViewModel() {
             }
     }
 
+    fun updateEvent(event: Event, newImageUri: Uri?, onComplete: (Boolean, String?) -> Unit) {
+        if (event.id.isEmpty()) {
+            onComplete(false, "Invalid event ID")
+            return
+        }
+
+        if (newImageUri != null) {
+            uploadImage(newImageUri) { imageUrl ->
+                if (imageUrl != null) {
+                    val updatedEvent = event.copy(imageUrl = imageUrl)
+                    updateInFirestore(updatedEvent, onComplete)
+                } else {
+                    onComplete(false, "Image upload failed.")
+                }
+            }
+        } else {
+            updateInFirestore(event, onComplete)
+        }
+    }
+
+    private fun updateInFirestore(event: Event, onComplete: (Boolean, String?) -> Unit) {
+        db.collection("events").document(event.id).set(event)
+            .addOnCompleteListener { task ->
+                if (task.isSuccessful) {
+                    onComplete(true, null)
+                } else {
+                    onComplete(false, task.exception?.localizedMessage ?: "Firestore update error")
+                }
+            }
+    }
+
     private fun uploadImage(uri: Uri, callback: (String?) -> Unit) {
         val storageRef = storage.reference.child("event_images/${UUID.randomUUID()}")
         storageRef.putFile(uri)
@@ -162,6 +193,24 @@ class EventViewModel : ViewModel() {
                     onComplete(true, null)
                 } else {
                     onComplete(false, task.exception?.localizedMessage ?: "Error leaving event")
+                }
+            }
+    }
+
+    fun checkInEvent(eventId: String, onComplete: (Boolean, String?) -> Unit) {
+        val uid = currentUserUid
+        if (uid == null) {
+            onComplete(false, "User not logged in")
+            return
+        }
+
+        db.collection("events").document(eventId)
+            .update("checkedInUids", FieldValue.arrayUnion(uid))
+            .addOnCompleteListener { task ->
+                if (task.isSuccessful) {
+                    onComplete(true, null)
+                } else {
+                    onComplete(false, task.exception?.localizedMessage ?: "Error checking in")
                 }
             }
     }

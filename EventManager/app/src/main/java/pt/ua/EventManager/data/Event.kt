@@ -13,6 +13,7 @@ data class Event(
     val location: GeoPoint = GeoPoint(0.0, 0.0), 
     val address: String = "", 
     val timestamp: Long = System.currentTimeMillis(), 
+    val endTimestamp: Long = System.currentTimeMillis() + 3600000, // Default 1 hour later
     val imageUrl: String? = null, 
     val organizerUid: String = "", 
     val organizerName: String = "Anonymous",

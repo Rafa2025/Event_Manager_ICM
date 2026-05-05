@@ -2,6 +2,7 @@ package pt.ua.EventManager.ui.navigation
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Notifications
@@ -26,6 +27,7 @@ sealed class Screen(val route: String, val title: String, val icon: Any) {
     object QRCode : Screen("qr_code", "Event QR", Icons.Default.QrCode)
     object QRScanner : Screen("qr_scanner", "Scanner", Icons.Default.QrCodeScanner)
     object ParticipantsList : Screen("participants_list", "Participants", Icons.Default.People)
+    object EventEdit : Screen("event_edit", "Edit Event", Icons.Default.Edit)
 }
 
 val navItems = listOf(
@@ -40,5 +42,6 @@ val navItems = listOf(
     Screen.AttendingDetails,
     Screen.QRCode,
     Screen.QRScanner,
-    Screen.ParticipantsList
+    Screen.ParticipantsList,
+    Screen.EventEdit
 )

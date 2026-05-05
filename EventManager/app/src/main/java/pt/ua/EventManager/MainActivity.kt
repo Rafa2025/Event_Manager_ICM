@@ -63,14 +63,15 @@ class MainActivity : ComponentActivity() {
                         Screen.AttendingDetails,
                         Screen.QRCode,
                         Screen.QRScanner,
-                        Screen.ParticipantsList
+                        Screen.ParticipantsList,
+                        Screen.EventEdit
                     )
                 }
 
                 var currentScreenIndex by rememberSaveable { mutableIntStateOf(0) }
 
                 val pagerState = rememberPagerState(
-                    initialPage = currentScreenIndex, // Add this line
+                    initialPage = currentScreenIndex,
                     pageCount = { allScreens.size }
                 )
                 val scope = rememberCoroutineScope()
@@ -259,6 +260,9 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onParticipantsClick = {
                                     navigateTo(allScreens.indexOf(Screen.ParticipantsList))
+                                },
+                                onEditClick = {
+                                    navigateTo(allScreens.indexOf(Screen.EventEdit))
                                 }
                             )
                             Screen.AttendingDetails -> AttendingDetailsScreen(
@@ -285,6 +289,10 @@ class MainActivity : ComponentActivity() {
                                 event = selectedMyEvent,
                                 onBack = { navigateBack() },
                                 userViewModel = userViewModel
+                            )
+                            Screen.EventEdit -> EventEditScreen(
+                                event = selectedMyEvent,
+                                onBack = { navigateBack() }
                             )
                         }
                     }

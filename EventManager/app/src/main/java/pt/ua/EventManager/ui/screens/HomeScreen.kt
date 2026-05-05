@@ -27,6 +27,7 @@ import pt.ua.EventManager.data.Event
 import pt.ua.EventManager.ui.viewmodels.EventViewModel
 import java.text.SimpleDateFormat
 import java.util.*
+import java.util.concurrent.TimeUnit
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -101,8 +102,29 @@ fun HomeScreen(
 
 @Composable
 fun EventCard(event: Event, onClick: () -> Unit) {
+    val currentTime = System.currentTimeMillis()
+    val isHappening = currentTime in event.timestamp..event.endTimestamp
+    val isUpcoming = currentTime < event.timestamp
+    
+    val statusText = when {
+        isHappening -> "Happening Now!"
+        isUpcoming -> {
+            val diff = event.timestamp - currentTime
+            val hours = TimeUnit.MILLISECONDS.toHours(diff)
+            val minutes = TimeUnit.MILLISECONDS.toMinutes(diff) % 60
+            val days = TimeUnit.MILLISECONDS.toDays(diff)
+            
+            if (days > 0) "Starts in $days days"
+            else if (hours > 0) "Starts in $hours h $minutes min"
+            else "Starts in $minutes min"
+        }
+        else -> "Ended"
+    }
+    val statusColor = if (isHappening) Color(0xFF2E7D32) else if (isUpcoming) MaterialTheme.colorScheme.primary else Color.Gray
+
     val sdf = SimpleDateFormat("MMM dd, yyyy • h:mm a", Locale.getDefault())
-    val dateString = sdf.format(Date(event.timestamp))
+    val timeSdf = SimpleDateFormat("h:mm a", Locale.getDefault())
+    val dateString = "${sdf.format(Date(event.timestamp))} - ${timeSdf.format(Date(event.endTimestamp))}"
 
     Card(
         modifier = Modifier
@@ -128,6 +150,21 @@ fun EventCard(event: Event, onClick: () -> Unit) {
                         contentDescription = null,
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop
+                    )
+                }
+                
+                // Status Badge
+                Surface(
+                    modifier = Modifier.padding(12.dp).align(Alignment.TopEnd),
+                    color = statusColor,
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(
+                        text = statusText,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }

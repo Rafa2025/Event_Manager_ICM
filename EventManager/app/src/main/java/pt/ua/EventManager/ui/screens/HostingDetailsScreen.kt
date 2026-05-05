@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.sp
 import pt.ua.EventManager.data.Event
 import java.text.SimpleDateFormat
 import java.util.*
+import java.util.concurrent.TimeUnit
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -25,17 +26,23 @@ fun HostingDetailsScreen(
     event: Event?, 
     onBack: () -> Unit,
     onShowQR: () -> Unit,
-    onParticipantsClick: () -> Unit
+    onParticipantsClick: () -> Unit,
+    onEditClick: () -> Unit
 ) {
     if (event == null) return
 
-    val sdf = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+    val currentTime = System.currentTimeMillis()
+    val isHappening = currentTime in event.timestamp..event.endTimestamp
+    val isUpcoming = currentTime < event.timestamp
+    val isEnded = currentTime > event.endTimestamp
+
+    val sdf = SimpleDateFormat("MMM dd, yyyy • h:mm a", Locale.getDefault())
     val dateString = sdf.format(Date(event.timestamp))
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Hosting Details", fontWeight = FontWeight.Bold) },
+                title = { Text("Hosting Details", fontWeight = FontWeight.Bold, fontSize = 26.sp) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
@@ -46,7 +53,7 @@ fun HostingDetailsScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { /* Edit event */ }) {
+                    IconButton(onClick = onEditClick) {
                         Icon(
                             imageVector = Icons.Default.Edit,
                             contentDescription = "Edit",
@@ -80,9 +87,25 @@ fun HostingDetailsScreen(
                 Column(modifier = Modifier.padding(24.dp)) {
                     Text(event.title, fontSize = 24.sp, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(8.dp))
+                    
+                    val statusText = when {
+                        isHappening -> "Happening Now!"
+                        isUpcoming -> {
+                            val diff = event.timestamp - currentTime
+                            val hours = TimeUnit.MILLISECONDS.toHours(diff)
+                            val minutes = TimeUnit.MILLISECONDS.toMinutes(diff) % 60
+                            val days = TimeUnit.MILLISECONDS.toDays(diff)
+                            
+                            if (days > 0) "Starts in $days days"
+                            else if (hours > 0) "Starts in $hours h $minutes min"
+                            else "Starts in $minutes min"
+                        }
+                        else -> "Event Ended"
+                    }
+
                     Text(
-                        text = if (event.isPublic) "Public Event" else "Private Event",
-                        color = MaterialTheme.colorScheme.primary,
+                        statusText,
+                        color = if (isHappening) Color(0xFF2E7D32) else MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -99,9 +122,24 @@ fun HostingDetailsScreen(
                     ManagementButton(Modifier.weight(1f), Icons.Default.People, "Participants") {
                         onParticipantsClick()
                     }
-                    ManagementButton(Modifier.weight(1f), Icons.Default.QrCode, "Check-in QR") {
+                    
+                    // QR Code button is only enabled/visible when happening
+                    ManagementButton(
+                        modifier = Modifier.weight(1f), 
+                        icon = if (isHappening) Icons.Default.QrCode else Icons.Default.QrCodeScanner, 
+                        text = if (isHappening) "Check-in QR" else "QR Locked",
+                        enabled = isHappening
+                    ) {
                         onShowQR()
                     }
+                }
+                if (!isHappening && isUpcoming) {
+                    Text(
+                        "Check-in QR will be available when the event starts.",
+                        color = Color.Gray,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
                 }
             }
 
@@ -137,12 +175,14 @@ fun ManagementButton(
     modifier: Modifier,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     text: String,
+    enabled: Boolean = true,
     onClick: () -> Unit
 ) {
     OutlinedButton(
         onClick = onClick,
         modifier = modifier.height(80.dp),
-        shape = RoundedCornerShape(16.dp)
+        shape = RoundedCornerShape(16.dp),
+        enabled = enabled
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(imageVector = icon, contentDescription = null)

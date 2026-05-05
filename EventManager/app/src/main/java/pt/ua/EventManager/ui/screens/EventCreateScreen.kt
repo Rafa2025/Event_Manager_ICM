@@ -54,6 +54,7 @@ fun EventCreateScreen(
 ) {
     val context = LocalContext.current
     val calendar = Calendar.getInstance()
+    val endCalendar = Calendar.getInstance()
     val currentUser by userViewModel.currentUser.collectAsState()
     
     // Places API states
@@ -67,7 +68,8 @@ fun EventCreateScreen(
     var description by remember { mutableStateOf("") }
     var category by remember { mutableStateOf("Meetup") }
     var dateText by remember { mutableStateOf("mm/dd/yy") }
-    var timeText by remember { mutableStateOf("--:-- --") }
+    var startTimeText by remember { mutableStateOf("--:-- --") }
+    var endTimeText by remember { mutableStateOf("--:-- --") }
     var address by remember { mutableStateOf("") }
     var minPeople by remember { mutableStateOf("5") }
     var maxPeople by remember { mutableStateOf("30") }
@@ -77,6 +79,7 @@ fun EventCreateScreen(
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
     
     var timestamp by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    var endTimestamp by remember { mutableLongStateOf(System.currentTimeMillis() + 3600000) }
 
     // Search logic
     fun fetchAddressSuggestions(query: String) {
@@ -129,26 +132,45 @@ fun EventCreateScreen(
         context,
         { _, year, month, dayOfMonth ->
             calendar.set(year, month, dayOfMonth)
+            endCalendar.set(year, month, dayOfMonth)
             val sdf = SimpleDateFormat("MM/dd/yy", Locale.getDefault())
             dateText = sdf.format(calendar.time)
             timestamp = calendar.timeInMillis
+            // Ensure end timestamp is on the same day if not set
+            if (endTimestamp < timestamp) {
+                endTimestamp = timestamp + 3600000
+            }
         },
         calendar.get(Calendar.YEAR),
         calendar.get(Calendar.MONTH),
         calendar.get(Calendar.DAY_OF_MONTH)
     )
 
-    val timePickerDialog = TimePickerDialog(
+    val startTimePickerDialog = TimePickerDialog(
         context,
         { _, hourOfDay, minute ->
             calendar.set(Calendar.HOUR_OF_DAY, hourOfDay)
             calendar.set(Calendar.MINUTE, minute)
             val sdf = SimpleDateFormat("hh:mm a", Locale.getDefault())
-            timeText = sdf.format(calendar.time)
+            startTimeText = sdf.format(calendar.time)
             timestamp = calendar.timeInMillis
         },
         calendar.get(Calendar.HOUR_OF_DAY),
         calendar.get(Calendar.MINUTE),
+        false
+    )
+
+    val endTimePickerDialog = TimePickerDialog(
+        context,
+        { _, hourOfDay, minute ->
+            endCalendar.set(Calendar.HOUR_OF_DAY, hourOfDay)
+            endCalendar.set(Calendar.MINUTE, minute)
+            val sdf = SimpleDateFormat("hh:mm a", Locale.getDefault())
+            endTimeText = sdf.format(endCalendar.time)
+            endTimestamp = endCalendar.timeInMillis
+        },
+        endCalendar.get(Calendar.HOUR_OF_DAY),
+        endCalendar.get(Calendar.MINUTE),
         false
     )
 
@@ -237,7 +259,13 @@ fun EventCreateScreen(
             val textFieldColors = OutlinedTextFieldDefaults.colors(
                 unfocusedContainerColor = MaterialTheme.colorScheme.surface,
                 focusedContainerColor = MaterialTheme.colorScheme.surface,
-                unfocusedBorderColor = Color.LightGray.copy(alpha = 0.5f)
+                unfocusedBorderColor = Color.LightGray.copy(alpha = 0.5f),
+                disabledBorderColor = Color.LightGray.copy(alpha = 0.5f),
+                disabledContainerColor = MaterialTheme.colorScheme.surface,
+                disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                disabledLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                disabledTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             OutlinedTextField(
@@ -293,35 +321,50 @@ fun EventCreateScreen(
                 }
             }
 
+            Box(modifier = Modifier.fillMaxWidth()) {
+                OutlinedTextField(
+                    value = dateText,
+                    onValueChange = {},
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Date") },
+                    leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = null) },
+                    shape = RoundedCornerShape(12.dp),
+                    readOnly = true,
+                    colors = textFieldColors,
+                    enabled = false
+                )
+                Box(modifier = Modifier.matchParentSize().clickable { datePickerDialog.show() })
+            }
+
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 Box(modifier = Modifier.weight(1f)) {
                     OutlinedTextField(
-                        value = dateText,
+                        value = startTimeText,
                         onValueChange = {},
                         modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Date") },
-                        leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = null) },
-                        shape = RoundedCornerShape(12.dp),
-                        readOnly = true,
-                        colors = textFieldColors,
-                        enabled = false
-                    )
-                    Box(modifier = Modifier.matchParentSize().clickable { datePickerDialog.show() })
-                }
-
-                Box(modifier = Modifier.weight(1f)) {
-                    OutlinedTextField(
-                        value = timeText,
-                        onValueChange = {},
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Time") },
+                        label = { Text("Start Time") },
                         leadingIcon = { Icon(Icons.Default.AccessTime, contentDescription = null) },
                         shape = RoundedCornerShape(12.dp),
                         readOnly = true,
                         colors = textFieldColors,
                         enabled = false
                     )
-                    Box(modifier = Modifier.matchParentSize().clickable { timePickerDialog.show() })
+                    Box(modifier = Modifier.matchParentSize().clickable { startTimePickerDialog.show() })
+                }
+
+                Box(modifier = Modifier.weight(1f)) {
+                    OutlinedTextField(
+                        value = endTimeText,
+                        onValueChange = {},
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("End Time") },
+                        leadingIcon = { Icon(Icons.Default.AccessTime, contentDescription = null) },
+                        shape = RoundedCornerShape(12.dp),
+                        readOnly = true,
+                        colors = textFieldColors,
+                        enabled = false
+                    )
+                    Box(modifier = Modifier.matchParentSize().clickable { endTimePickerDialog.show() })
                 }
             }
 
@@ -436,6 +479,11 @@ fun EventCreateScreen(
                             Toast.makeText(context, "Please fill in all required fields", Toast.LENGTH_SHORT).show()
                             return@Button
                         }
+
+                        if (endTimestamp <= timestamp) {
+                            Toast.makeText(context, "End time must be after start time", Toast.LENGTH_SHORT).show()
+                            return@Button
+                        }
                         
                         isLoading = true
                         val newEvent = Event(
@@ -448,6 +496,7 @@ fun EventCreateScreen(
                             foodOption = foodOption,
                             isPublic = !isPrivate,
                             timestamp = timestamp,
+                            endTimestamp = endTimestamp,
                             location = eventLocation
                         )
                         
@@ -461,7 +510,8 @@ fun EventCreateScreen(
                                 description = ""
                                 address = ""
                                 dateText = "mm/dd/yy"
-                                timeText = "--:-- --"
+                                startTimeText = "--:-- --"
+                                endTimeText = "--:-- --"
                                 selectedImageUri = null
                                 eventLocation = GeoPoint(0.0, 0.0)
                             } else {
