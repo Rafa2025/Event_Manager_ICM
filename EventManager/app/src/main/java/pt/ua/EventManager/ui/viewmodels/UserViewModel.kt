@@ -46,6 +46,19 @@ class UserViewModel : ViewModel() {
         }
     }
 
+    fun getUserName(uid: String, onResult: (String?) -> Unit) {
+        db.collection("users").document(uid).get().addOnSuccessListener { snapshot ->
+            if (snapshot != null && snapshot.exists()) {
+                val user = snapshot.toObject(User::class.java)
+                onResult(user?.name)
+            } else {
+                onResult(null)
+            }
+        }.addOnFailureListener {
+            onResult(null)
+        }
+    }
+
     fun signUp(name: String, email: String, password: String, onResult: (Boolean, String?) -> Unit) {
         auth.createUserWithEmailAndPassword(email, password).addOnCompleteListener { task ->
             if (task.isSuccessful) {

@@ -53,7 +53,7 @@ fun ParticipantsListScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Verifica se a lista de IDs está vazia[cite: 10]
+            // Verifica se a lista de IDs está vazia
             if (event.participantsUids.isEmpty()) {
                 item {
                     Box(Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) {
@@ -97,7 +97,7 @@ fun ParticipantRow(uid: String, isPresent: Boolean, userViewModel: UserViewModel
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Usa o seu componente CommonAvatar com a inicial do nome[cite: 3, 5]
+            // Usa o seu componente CommonAvatar com a inicial do nome
             CommonAvatar(
                 text = if (userName != "Loading...") userName.take(1).uppercase() else "?",
                 color = MaterialTheme.colorScheme.secondary
@@ -113,7 +113,7 @@ fun ParticipantRow(uid: String, isPresent: Boolean, userViewModel: UserViewModel
             )
 
             if (isPresent) {
-                // Badge de presença com a cor verde[cite: 1, 10]
+                // Badge de presença com a cor verde
                 Surface(
                     color = Color(0xFF10B981),
                     shape = RoundedCornerShape(8.dp)

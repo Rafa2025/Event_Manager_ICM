@@ -69,6 +69,7 @@ class MainActivity : ComponentActivity() {
                 }
 
                 var currentScreenIndex by rememberSaveable { mutableIntStateOf(0) }
+                var myEventsInitialTab by rememberSaveable { mutableIntStateOf(0) }
                 
                 val pagerState = rememberPagerState(
                     initialPage = currentScreenIndex,
@@ -82,10 +83,6 @@ class MainActivity : ComponentActivity() {
                     restore = { it.toMutableStateList() }
                 )) { mutableStateListOf<Int>() }
 
-                // Note: selectedEvent and selectedMyEvent are typically updated via user interaction.
-                // If the app crashes on rotation while an event is selected, it's because Event isn't Parcelable.
-                // For simplicity in this fix, we'll keep them as remember for now or you'd need a complex Saver.
-                // But the critical navigation state is now rememberSaveable.
                 var selectedEvent by remember { mutableStateOf<Event?>(null) }
                 var selectedMyEvent by remember { mutableStateOf<Event?>(null) }
 
@@ -156,6 +153,9 @@ class MainActivity : ComponentActivity() {
                                             if (!isSelected) {
                                                 navigationStack.clear()
                                                 currentScreenIndex = index
+                                                if (allScreens[index] == Screen.MyEvents) {
+                                                    myEventsInitialTab = 0
+                                                }
                                                 scope.launch {
                                                     pagerState.scrollToPage(index)
                                                 }
@@ -233,7 +233,8 @@ class MainActivity : ComponentActivity() {
                                             selectedMyEvent = event
                                             val route = if (isHosting) Screen.HostingDetails else Screen.AttendingDetails
                                             navigateTo(allScreens.indexOf(route))
-                                        }
+                                        },
+                                        initialTab = myEventsInitialTab
                                     )
                                 }
                             }
@@ -277,7 +278,12 @@ class MainActivity : ComponentActivity() {
                                 onBack = { navigateBack() },
                                 onScanResult = { success ->
                                     if (success) {
-                                        navigateBack()
+                                        myEventsInitialTab = 1
+                                        navigationStack.clear()
+                                        currentScreenIndex = allScreens.indexOf(Screen.MyEvents)
+                                        scope.launch {
+                                            pagerState.scrollToPage(currentScreenIndex)
+                                        }
                                     }
                                 }
                             )
