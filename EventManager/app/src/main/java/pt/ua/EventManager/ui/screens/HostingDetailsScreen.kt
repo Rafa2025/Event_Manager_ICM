@@ -1,5 +1,6 @@
 package pt.ua.EventManager.ui.screens
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -9,12 +10,15 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.google.firebase.firestore.FirebaseFirestore
 import pt.ua.EventManager.data.Event
 import java.text.SimpleDateFormat
 import java.util.*
@@ -29,8 +33,43 @@ fun HostingDetailsScreen(
 ) {
     if (event == null) return
 
+    val context = LocalContext.current
     val sdf = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
     val dateString = sdf.format(Date(event.timestamp))
+    
+    var showDeleteDialog by rememberSaveable { mutableStateOf(false) }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Cancel Event") },
+            text = { Text("Are you sure you want to cancel this event? This action cannot be undone.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteDialog = false
+                        cancelEvent(event.id, 
+                            onSuccess = { 
+                                Toast.makeText(context, "Event cancelled successfully", Toast.LENGTH_SHORT).show()
+                                onBack() 
+                            }, 
+                            onFailure = { e -> 
+                                Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                            }
+                        )
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = Color.Red)
+                ) {
+                    Text("Confirm")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("Back")
+                }
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -119,7 +158,7 @@ fun HostingDetailsScreen(
 
             // ── Cancel Button ──────────────────────────────────────────────
             Button(
-                onClick = { },
+                onClick = { showDeleteDialog = true },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
@@ -130,6 +169,14 @@ fun HostingDetailsScreen(
             }
         }
     }
+}
+
+fun cancelEvent(eventId: String, onSuccess: () -> Unit, onFailure: (Exception) -> Unit) {
+    val db = FirebaseFirestore.getInstance()
+    db.collection("events").document(eventId)
+        .delete()
+        .addOnSuccessListener { onSuccess() }
+        .addOnFailureListener { e -> onFailure(e) }
 }
 
 @Composable

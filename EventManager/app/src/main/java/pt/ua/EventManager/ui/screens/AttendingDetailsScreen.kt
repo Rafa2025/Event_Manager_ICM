@@ -1,5 +1,6 @@
 package pt.ua.EventManager.ui.screens
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -9,11 +10,16 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FieldValue
+import com.google.firebase.firestore.FirebaseFirestore
 import pt.ua.EventManager.data.Event
 import java.text.SimpleDateFormat
 import java.util.*
@@ -27,8 +33,46 @@ fun AttendingDetailsScreen(
 ) {
     if (event == null) return
 
+    val context = LocalContext.current
     val sdf = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
     val dateString = sdf.format(Date(event.timestamp))
+    
+    var showLeaveDialog by rememberSaveable { mutableStateOf(false) }
+    val currentUser = FirebaseAuth.getInstance().currentUser
+
+    if (showLeaveDialog) {
+        AlertDialog(
+            onDismissRequest = { showLeaveDialog = false },
+            title = { Text("Leave Event") },
+            text = { Text("Are you sure you want to unregister from this event?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showLeaveDialog = false
+                        currentUser?.uid?.let { uid ->
+                            unregisterFromEvent(event.id, uid,
+                                onSuccess = {
+                                    Toast.makeText(context, "Unregistered successfully", Toast.LENGTH_SHORT).show()
+                                    onBack()
+                                },
+                                onFailure = { e ->
+                                    Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                                }
+                            )
+                        }
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = Color.Red)
+                ) {
+                    Text("Confirm")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLeaveDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -104,7 +148,7 @@ fun AttendingDetailsScreen(
             EventChatSection(eventId = event.id, hostUid = event.organizerUid)
 
             Button(
-                onClick = { },
+                onClick = { showLeaveDialog = true },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
@@ -115,4 +159,12 @@ fun AttendingDetailsScreen(
             }
         }
     }
+}
+
+fun unregisterFromEvent(eventId: String, userId: String, onSuccess: () -> Unit, onFailure: (Exception) -> Unit) {
+    val db = FirebaseFirestore.getInstance()
+    db.collection("events").document(eventId)
+        .update("participantsUids", FieldValue.arrayRemove(userId))
+        .addOnSuccessListener { onSuccess() }
+        .addOnFailureListener { e -> onFailure(e) }
 }

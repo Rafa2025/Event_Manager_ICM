@@ -20,6 +20,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -27,6 +28,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
@@ -44,11 +46,15 @@ import com.google.zxing.WriterException
 import com.google.zxing.qrcode.QRCodeWriter
 import pt.ua.EventManager.data.Event
 import java.util.concurrent.Executors
+import android.content.res.Configuration
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EventQRCodeScreen(event: Event?, onBack: () -> Unit) {
     if (event == null) return
+
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     Scaffold(
         topBar = {
@@ -92,14 +98,14 @@ fun EventQRCodeScreen(event: Event?, onBack: () -> Unit) {
                 textAlign = TextAlign.Center
             )
             
-            Spacer(modifier = Modifier.height(48.dp))
+            Spacer(modifier = Modifier.height(if (isLandscape) 16.dp else 48.dp))
             
             val bitmap = remember(event.id) { generateQRCode("event_checkin:${event.id}") }
             
             if (bitmap != null) {
                 Card(
                     modifier = Modifier
-                        .size(300.dp)
+                        .size(if (isLandscape) 200.dp else 300.dp)
                         .padding(8.dp),
                     shape = RoundedCornerShape(24.dp),
                     elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
@@ -115,7 +121,7 @@ fun EventQRCodeScreen(event: Event?, onBack: () -> Unit) {
                 }
             }
             
-            Spacer(modifier = Modifier.height(48.dp))
+            Spacer(modifier = Modifier.height(if (isLandscape) 16.dp else 48.dp))
             
             Surface(
                 color = MaterialTheme.colorScheme.primaryContainer,
@@ -148,9 +154,9 @@ fun EventQRCodeScreen(event: Event?, onBack: () -> Unit) {
 fun QRScannerScreen(event: Event?, onBack: () -> Unit, onScanResult: (Boolean) -> Unit) {
     if (event == null) return
     val context = LocalContext.current
-    var isScanned by remember { mutableStateOf(false) }
+    var isScanned by rememberSaveable { mutableStateOf(false) }
 
-    var hasCameraPermission by remember {
+    var hasCameraPermission by rememberSaveable {
         mutableStateOf(
             ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
         )
@@ -207,9 +213,7 @@ fun QRScannerScreen(event: Event?, onBack: () -> Unit, onScanResult: (Boolean) -
                             onScanResult(true)
                             onBack()
                         } else if (result != null && result.startsWith("event_checkin:")) {
-                            isScanned = true
                             Toast.makeText(context, "Invalid QR Code for this event", Toast.LENGTH_SHORT).show()
-                            isScanned = false 
                         }
                     }
                 })
@@ -343,7 +347,9 @@ fun CameraPreview(onBarcodeDetected: (List<Barcode>) -> Unit) {
 
     AndroidView(
         factory = { ctx ->
-            val previewView = PreviewView(ctx)
+            val previewView = PreviewView(ctx).apply {
+                scaleType = PreviewView.ScaleType.FILL_CENTER
+            }
             val executor = ContextCompat.getMainExecutor(ctx)
             cameraProviderFuture.addListener({
                 val cameraProvider = cameraProviderFuture.get()

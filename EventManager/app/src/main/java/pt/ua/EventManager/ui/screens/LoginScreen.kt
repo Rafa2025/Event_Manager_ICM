@@ -28,7 +28,6 @@ enum class AuthMode { SELECTION, LOGIN, SIGNUP }
 @Composable
 fun LoginScreen(userViewModel: UserViewModel = viewModel(), onLoginSuccess: () -> Unit) {
     var authMode by remember { mutableStateOf(AuthMode.SELECTION) }
-    val context = LocalContext.current
 
     Scaffold(
         topBar = {
@@ -48,7 +47,10 @@ fun LoginScreen(userViewModel: UserViewModel = viewModel(), onLoginSuccess: () -
             when (authMode) {
                 AuthMode.SELECTION -> AuthSelectionContent(onModeSelected = { authMode = it })
                 AuthMode.LOGIN -> LoginForm(userViewModel, onLoginSuccess)
-                AuthMode.SIGNUP -> SignupForm(userViewModel, onLoginSuccess)
+                AuthMode.SIGNUP -> SignupForm(userViewModel, onSignupSuccess = { 
+                    // Após registo com sucesso, mudamos para o ecrã de Login
+                    authMode = AuthMode.LOGIN 
+                })
             }
         }
     }
@@ -136,8 +138,11 @@ fun LoginForm(userViewModel: UserViewModel, onLoginSuccess: () -> Unit) {
                     isLoading = true
                     userViewModel.signIn(email, password) { success, error ->
                         isLoading = false
-                        if (success) onLoginSuccess()
-                        else Toast.makeText(context, error ?: "Login failed", Toast.LENGTH_LONG).show()
+                        if (success) {
+                            onLoginSuccess()
+                        } else {
+                            Toast.makeText(context, error ?: "Login failed", Toast.LENGTH_LONG).show()
+                        }
                     }
                 },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
@@ -150,7 +155,7 @@ fun LoginForm(userViewModel: UserViewModel, onLoginSuccess: () -> Unit) {
 }
 
 @Composable
-fun SignupForm(userViewModel: UserViewModel, onLoginSuccess: () -> Unit) {
+fun SignupForm(userViewModel: UserViewModel, onSignupSuccess: () -> Unit) {
     var name by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -161,6 +166,7 @@ fun SignupForm(userViewModel: UserViewModel, onLoginSuccess: () -> Unit) {
         modifier = Modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        // ... (Campos de texto iguais aos anteriores)
         Text("Create Account", fontSize = 24.sp, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(32.dp))
         
@@ -207,10 +213,16 @@ fun SignupForm(userViewModel: UserViewModel, onLoginSuccess: () -> Unit) {
                         return@Button
                     }
                     isLoading = true
-                    userViewModel.signUp(name, email, password) { success, error ->
+                    userViewModel.signUp(name, email, password) { success, message ->
                         isLoading = false
-                        if (success) onLoginSuccess()
-                        else Toast.makeText(context, error ?: "Signup failed", Toast.LENGTH_LONG).show()
+                        if (success) {
+                            // Mostra a mensagem de "Verifique o seu email"
+                            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                            // Volta para o formulário de LOGIN
+                            onSignupSuccess()
+                        } else {
+                            Toast.makeText(context, message ?: "Signup failed", Toast.LENGTH_LONG).show()
+                        }
                     }
                 },
                 modifier = Modifier.fillMaxWidth().height(56.dp),

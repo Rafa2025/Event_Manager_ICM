@@ -18,7 +18,20 @@ class UserViewModel : ViewModel() {
         auth.addAuthStateListener { firebaseAuth ->
             val firebaseUser = firebaseAuth.currentUser
             if (firebaseUser != null) {
-                fetchUserData(firebaseUser.uid)
+                // Se não estiver verificado, limpamos logo o estado local
+                if (!firebaseUser.isEmailVerified) {
+                    _currentUser.value = null
+                }
+                
+                // Forçamos um reload para verificar se o status mudou (clique no link)
+                firebaseUser.reload().addOnCompleteListener {
+                    val updatedUser = auth.currentUser
+                    if (updatedUser != null && updatedUser.isEmailVerified) {
+                        fetchUserData(updatedUser.uid)
+                    } else {
+                        _currentUser.value = null
+                    }
+                }
             } else {
                 _currentUser.value = null
             }
@@ -33,22 +46,22 @@ class UserViewModel : ViewModel() {
         }
     }
 
-    fun getUserName(uid: String, onResult: (String) -> Unit) {
-        db.collection("users").document(uid).get().addOnSuccessListener { snapshot ->
-            val name = snapshot.getString("name") ?: "Unknown User"
-            onResult(name)
-        }.addOnFailureListener {
-            onResult("Error loading name")
-        }
-    }
-
     fun signUp(name: String, email: String, password: String, onResult: (Boolean, String?) -> Unit) {
         auth.createUserWithEmailAndPassword(email, password).addOnCompleteListener { task ->
             if (task.isSuccessful) {
-                val uid = task.result?.user?.uid ?: ""
-                val newUser = User(uid = uid, name = name, email = email)
-                db.collection("users").document(uid).set(newUser).addOnCompleteListener {
-                    onResult(true, null)
+                val firebaseUser = task.result?.user
+                
+                firebaseUser?.sendEmailVerification()?.addOnCompleteListener { emailTask ->
+                    val newUser = User(uid = firebaseUser.uid, name = name, email = email)
+                    db.collection("users").document(firebaseUser.uid).set(newUser).addOnCompleteListener {
+                        // Logout imediato para que ele não entre direto sem verificar
+                        auth.signOut()
+                        if (emailTask.isSuccessful) {
+                            onResult(true, "Conta criada! Verifique o seu email ($email) antes de fazer login.")
+                        } else {
+                            onResult(true, "Conta criada, mas erro ao enviar email. Tente fazer login para reenviar.")
+                        }
+                    }
                 }
             } else {
                 onResult(false, task.exception?.message)
@@ -59,7 +72,17 @@ class UserViewModel : ViewModel() {
     fun signIn(email: String, password: String, onResult: (Boolean, String?) -> Unit) {
         auth.signInWithEmailAndPassword(email, password).addOnCompleteListener { task ->
             if (task.isSuccessful) {
-                onResult(true, null)
+                val user = auth.currentUser
+                user?.reload()?.addOnCompleteListener {
+                    val updatedUser = auth.currentUser
+                    if (updatedUser != null && updatedUser.isEmailVerified) {
+                        fetchUserData(updatedUser.uid)
+                        onResult(true, null)
+                    } else {
+                        auth.signOut() 
+                        onResult(false, "Por favor, confirme o seu email no link que enviámos.")
+                    }
+                }
             } else {
                 onResult(false, task.exception?.message)
             }

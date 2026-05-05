@@ -28,9 +28,10 @@ import java.util.*
 fun MyEventsScreen(
     onNotificationsClick: () -> Unit = {},
     onEventClick: (Event, Boolean) -> Unit = { _, _ -> },
-    viewModel: EventViewModel = viewModel()
+    viewModel: EventViewModel = viewModel(),
+    initialTab: Int = 0
 ) {
-    var selectedTab by remember { mutableIntStateOf(0) }
+    var selectedTab by remember(initialTab) { mutableIntStateOf(initialTab) }
     val tabs = listOf("Hosting", "Attending")
     
     val allEvents by viewModel.events.collectAsState()

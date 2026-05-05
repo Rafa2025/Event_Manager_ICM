@@ -11,6 +11,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -29,8 +30,6 @@ import pt.ua.EventManager.ui.navigation.Screen
 import pt.ua.EventManager.ui.screens.*
 import pt.ua.EventManager.ui.theme.EventManagerTheme
 import pt.ua.EventManager.ui.viewmodels.UserViewModel
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.toMutableStateList
 
 class MainActivity : ComponentActivity() {
@@ -47,13 +46,15 @@ class MainActivity : ComponentActivity() {
             val currentUser by userViewModel.currentUser.collectAsState()
 
             EventManagerTheme {
-                val navBarItems = listOf(
-                    Screen.Home,
-                    Screen.EventMap,
-                    Screen.EventCreate,
-                    Screen.MyEvents,
-                    Screen.Profile
-                )
+                val navBarItems = remember {
+                    listOf(
+                        Screen.Home,
+                        Screen.EventMap,
+                        Screen.EventCreate,
+                        Screen.MyEvents,
+                        Screen.Profile
+                    )
+                }
 
                 val allScreens = remember {
                     navBarItems + listOf(
@@ -68,9 +69,9 @@ class MainActivity : ComponentActivity() {
                 }
 
                 var currentScreenIndex by rememberSaveable { mutableIntStateOf(0) }
-
+                
                 val pagerState = rememberPagerState(
-                    initialPage = currentScreenIndex, // Add this line
+                    initialPage = currentScreenIndex,
                     pageCount = { allScreens.size }
                 )
                 val scope = rememberCoroutineScope()
@@ -81,13 +82,15 @@ class MainActivity : ComponentActivity() {
                     restore = { it.toMutableStateList() }
                 )) { mutableStateListOf<Int>() }
 
-                
-                var selectedEvent by rememberSaveable { mutableStateOf<Event?>(null) }
-                var selectedMyEvent by rememberSaveable { mutableStateOf<Event?>(null) }
+                // Note: selectedEvent and selectedMyEvent are typically updated via user interaction.
+                // If the app crashes on rotation while an event is selected, it's because Event isn't Parcelable.
+                // For simplicity in this fix, we'll keep them as remember for now or you'd need a complex Saver.
+                // But the critical navigation state is now rememberSaveable.
+                var selectedEvent by remember { mutableStateOf<Event?>(null) }
+                var selectedMyEvent by remember { mutableStateOf<Event?>(null) }
 
                 val navigateTo = { nextIndex: Int ->
                     if (currentScreenIndex != nextIndex) {
-                        // Prevent adding the same screen multiple times in a row
                         if (navigationStack.isEmpty() || navigationStack.last() != currentScreenIndex) {
                             navigationStack.add(currentScreenIndex)
                         }
@@ -101,11 +104,9 @@ class MainActivity : ComponentActivity() {
                 val navigateBack = {
                     if (navigationStack.isNotEmpty()) {
                         val lastIndex = navigationStack.removeAt(navigationStack.size - 1)
-                        if (lastIndex in allScreens.indices) { // Extra safety check
-                            currentScreenIndex = lastIndex
-                            scope.launch {
-                                pagerState.scrollToPage(lastIndex)
-                            }
+                        currentScreenIndex = lastIndex
+                        scope.launch {
+                            pagerState.scrollToPage(lastIndex)
                         }
                     }
                 }
@@ -117,7 +118,6 @@ class MainActivity : ComponentActivity() {
 
                 Scaffold(
                     bottomBar = {
-                        // Use currentScreenIndex for stable UI state
                         if (currentScreenIndex < navBarItems.size) {
                             NavigationBar(
                                 containerColor = MaterialTheme.colorScheme.surface,
@@ -154,7 +154,7 @@ class MainActivity : ComponentActivity() {
                                         alwaysShowLabel = false,
                                         onClick = {
                                             if (!isSelected) {
-                                                navigationStack.clear() // Reset history when switching main tabs
+                                                navigationStack.clear()
                                                 currentScreenIndex = index
                                                 scope.launch {
                                                     pagerState.scrollToPage(index)
@@ -277,7 +277,7 @@ class MainActivity : ComponentActivity() {
                                 onBack = { navigateBack() },
                                 onScanResult = { success ->
                                     if (success) {
-                                        navigateBack() // Automatically go back to AttendingDetails on success
+                                        navigateBack()
                                     }
                                 }
                             )
