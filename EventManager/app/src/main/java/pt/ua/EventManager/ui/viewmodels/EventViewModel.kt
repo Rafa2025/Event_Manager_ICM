@@ -9,11 +9,14 @@ import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.GeoPoint
 import com.google.firebase.firestore.Query
+import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import pt.ua.EventManager.data.Event
 import pt.ua.EventManager.data.ChatMessage
+import pt.ua.EventManager.data.Notification
 import java.util.UUID
 
 class EventViewModel : ViewModel() {
@@ -22,13 +25,19 @@ class EventViewModel : ViewModel() {
     private val storage = FirebaseStorage.getInstance()
     
     private val _events = MutableStateFlow<List<Event>>(emptyList())
-    val events: StateFlow<List<Event>> = _events
+    val events: StateFlow<List<Event>> = _events.asStateFlow()
+
+    private val _notifications = MutableStateFlow<List<Notification>>(emptyList())
+    val notifications: StateFlow<List<Notification>> = _notifications.asStateFlow()
+
+    private var notificationsListener: ListenerRegistration? = null
 
     val currentUserUid: String? get() = auth.currentUser?.uid
 
     init {
         Log.d("EventViewModel", "Initializing EventViewModel. Current user: $currentUserUid")
         fetchEvents()
+        setupNotificationsListener()
     }
 
     private fun fetchEvents() {
@@ -57,16 +66,106 @@ class EventViewModel : ViewModel() {
             }
     }
 
-    private fun parseTimestamp(value: Any?): Long {
-        return when (value) {
-            is Long -> value
-            is Double -> value.toLong()
-            is Timestamp -> value.toDate().time
-            is Map<*, *> -> (value["seconds"] as? Long)?.times(1000) ?: System.currentTimeMillis()
-            else -> System.currentTimeMillis()
+    private fun setupNotificationsListener() {
+        val uid = currentUserUid ?: return
+        notificationsListener?.remove()
+        notificationsListener = db.collection("users").document(uid)
+            .collection("notifications")
+            .orderBy("timestamp", Query.Direction.DESCENDING)
+            .addSnapshotListener { snapshot, e ->
+                if (e != null) {
+                    Log.e("EventViewModel", "Notifications listener error", e)
+                    return@addSnapshotListener
+                }
+                if (snapshot != null) {
+                    val list = snapshot.documents.mapNotNull { doc ->
+                        doc.toObject(Notification::class.java)?.copy(id = doc.id)
+                    }
+                    _notifications.value = list
+                }
+            }
+    }
+
+    fun getHostingEvents(allEvents: List<Event>): List<Event> {
+        val uid = currentUserUid ?: return emptyList()
+        return allEvents.filter { it.organizerUid == uid }
+    }
+
+    fun getActiveHostingEvents(allEvents: List<Event>): List<Event> {
+        val uid = currentUserUid ?: return emptyList()
+        val currentTime = System.currentTimeMillis()
+        return allEvents.filter { it.organizerUid == uid && it.endTimestamp > currentTime }
+    }
+
+    fun getAttendingEvents(allEvents: List<Event>): List<Event> {
+        val uid = currentUserUid ?: return emptyList()
+        return allEvents.filter { it.participantsUids.contains(uid) }
+    }
+
+    fun getActiveAttendingEvents(allEvents: List<Event>): List<Event> {
+        val uid = currentUserUid ?: return emptyList()
+        val currentTime = System.currentTimeMillis()
+        return allEvents.filter { it.participantsUids.contains(uid) && it.endTimestamp > currentTime }
+    }
+
+    fun getCompletedEvents(allEvents: List<Event>): List<Event> {
+        val uid = currentUserUid ?: return emptyList()
+        val currentTime = System.currentTimeMillis()
+        return allEvents.filter { 
+            (it.organizerUid == uid || it.participantsUids.contains(uid)) && 
+            it.endTimestamp <= currentTime 
         }
     }
-    
+
+    fun inviteFriendToEvent(friendUid: String, event: Event, senderName: String) {
+        val currentUid = currentUserUid ?: return
+        
+        // 1. Update Event's invited list
+        db.collection("events").document(event.id)
+            .update("invitedUids", FieldValue.arrayUnion(friendUid))
+
+        // 2. Send Notification to friend
+        val notification = Notification(
+            type = "event_invite",
+            senderUid = currentUid,
+            senderName = senderName,
+            eventId = event.id,
+            eventTitle = event.title,
+            timestamp = System.currentTimeMillis(),
+            isRead = false
+        )
+        
+        db.collection("users").document(friendUid)
+            .collection("notifications")
+            .add(notification)
+    }
+
+    fun markNotificationAsRead(notificationId: String) {
+        val uid = currentUserUid ?: return
+        if (notificationId.isEmpty()) return
+        
+        db.collection("users").document(uid)
+            .collection("notifications").document(notificationId)
+            .update("isRead", true)
+            .addOnFailureListener { e ->
+                Log.e("EventViewModel", "Error marking notification as read: $notificationId", e)
+            }
+    }
+
+    fun clearAllNotifications() {
+        val uid = currentUserUid ?: return
+        db.collection("users").document(uid)
+            .collection("notifications")
+            .get()
+            .addOnSuccessListener { snapshot ->
+                val batch = db.batch()
+                for (doc in snapshot.documents) {
+                    batch.delete(doc.reference)
+                }
+                batch.commit()
+            }
+    }
+
     fun createEvent(event: Event, organizerName: String, imageUri: Uri?, onComplete: (Boolean, String?) -> Unit) {
         val uid = currentUserUid
         if (uid == null) {
@@ -144,16 +243,6 @@ class EventViewModel : ViewModel() {
                 }.addOnFailureListener { callback(null) }
             }
             .addOnFailureListener { callback(null) }
-    }
-
-    fun getHostingEvents(allEvents: List<Event>): List<Event> {
-        val uid = currentUserUid ?: return emptyList()
-        return allEvents.filter { it.organizerUid == uid }
-    }
-
-    fun getAttendingEvents(allEvents: List<Event>): List<Event> {
-        val uid = currentUserUid ?: return emptyList()
-        return allEvents.filter { it.participantsUids.contains(uid) }
     }
 
     fun joinEvent(event: Event, onComplete: (Boolean, String?) -> Unit) {
@@ -242,13 +331,8 @@ class EventViewModel : ViewModel() {
         return messagesFlow
     }
 
-    fun deleteAllEvents(onComplete: (Boolean) -> Unit) {
-        db.collection("events").get().addOnSuccessListener { snapshot ->
-            val batch = db.batch()
-            for (doc in snapshot.documents) {
-                batch.delete(doc.reference)
-            }
-            batch.commit().addOnCompleteListener { onComplete(it.isSuccessful) }
-        }.addOnFailureListener { onComplete(false) }
+    override fun onCleared() {
+        super.onCleared()
+        notificationsListener?.remove()
     }
 }

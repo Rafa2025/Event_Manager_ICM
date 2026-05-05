@@ -7,11 +7,11 @@ import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -22,9 +22,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -61,25 +60,25 @@ fun EventEditScreen(
     val context = LocalContext.current
     val calendar = Calendar.getInstance().apply { timeInMillis = event.timestamp }
     val endCalendar = Calendar.getInstance().apply { timeInMillis = event.endTimestamp }
-    
+
     // Places API states
     val placesClient = remember { Places.createClient(context) }
     val sessionToken = remember { AutocompleteSessionToken.newInstance() }
     var predictions by remember { mutableStateOf<List<AutocompletePrediction>>(emptyList()) }
     var eventLocation by remember { mutableStateOf(event.location) }
 
-    // Form states initialized with existing event data
+    // Form states
     var eventName by remember { mutableStateOf(event.title) }
     var description by remember { mutableStateOf(event.description) }
     var category by remember { mutableStateOf(event.category) }
-    
+
     val sdfDate = SimpleDateFormat("MM/dd/yy", Locale.getDefault())
     val sdfTime = SimpleDateFormat("hh:mm a", Locale.getDefault())
-    
+
     var dateText by remember { mutableStateOf(sdfDate.format(Date(event.timestamp))) }
     var startTimeText by remember { mutableStateOf(sdfTime.format(Date(event.timestamp))) }
     var endTimeText by remember { mutableStateOf(sdfTime.format(Date(event.endTimestamp))) }
-    
+
     var address by remember { mutableStateOf(event.address) }
     var minPeople by remember { mutableStateOf(event.minParticipants.toString()) }
     var maxPeople by remember { mutableStateOf(event.maxParticipants?.toString() ?: "") }
@@ -87,96 +86,84 @@ fun EventEditScreen(
     var isPrivate by remember { mutableStateOf(!event.isPublic) }
     var isLoading by remember { mutableStateOf(false) }
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
-    
+
     var timestamp by remember { mutableLongStateOf(event.timestamp) }
     var endTimestamp by remember { mutableLongStateOf(event.endTimestamp) }
 
-    // Search logic
+    // Helper functions maintained from original[cite: 10]
     fun fetchAddressSuggestions(query: String) {
-        if (query.length < 2) {
-            predictions = emptyList()
-            return
-        }
-        val request = FindAutocompletePredictionsRequest.builder()
-            .setSessionToken(sessionToken)
-            .setQuery(query)
-            .build()
-        placesClient.findAutocompletePredictions(request)
-            .addOnSuccessListener { response -> predictions = response.autocompletePredictions }
-            .addOnFailureListener { Log.e("Places", "Prediction fetching failed", it) }
+        if (query.length < 2) { predictions = emptyList(); return }
+        val request = FindAutocompletePredictionsRequest.builder().setSessionToken(sessionToken).setQuery(query).build()
+        placesClient.findAutocompletePredictions(request).addOnSuccessListener { response -> predictions = response.autocompletePredictions }
     }
 
     fun fetchPlaceDetails(prediction: AutocompletePrediction) {
-        val placeFields = listOf(Place.Field.ID, Place.Field.NAME, Place.Field.LAT_LNG, Place.Field.ADDRESS)
+        val placeFields = listOf(Place.Field.LAT_LNG, Place.Field.ADDRESS)
         val request = FetchPlaceRequest.newInstance(prediction.placeId, placeFields)
-        placesClient.fetchPlace(request)
-            .addOnSuccessListener { response ->
-                val place = response.place
-                address = place.address ?: place.name ?: ""
-                place.latLng?.let { eventLocation = GeoPoint(it.latitude, it.longitude) }
-                predictions = emptyList()
-            }
-            .addOnFailureListener { Log.e("Places", "Place details fetching failed", it) }
+        placesClient.fetchPlace(request).addOnSuccessListener { response ->
+            val place = response.place
+            address = place.address ?: ""
+            place.latLng?.let { eventLocation = GeoPoint(it.latitude, it.longitude) }
+            predictions = emptyList()
+        }
     }
 
-    val imagePickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        selectedImageUri = uri
-    }
+    val imagePickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri -> selectedImageUri = uri }
 
     val datePickerDialog = DatePickerDialog(context, { _, year, month, day ->
         calendar.set(year, month, day)
         dateText = sdfDate.format(calendar.time)
         timestamp = calendar.timeInMillis
-        if (endTimestamp < timestamp) endTimestamp = timestamp + 3600000
     }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH))
 
     val startTimePickerDialog = TimePickerDialog(context, { _, h, m ->
-        calendar.set(Calendar.HOUR_OF_DAY, h)
-        calendar.set(Calendar.MINUTE, m)
-        startTimeText = sdfTime.format(calendar.time)
-        timestamp = calendar.timeInMillis
+        calendar.set(Calendar.HOUR_OF_DAY, h); calendar.set(Calendar.MINUTE, m)
+        startTimeText = sdfTime.format(calendar.time); timestamp = calendar.timeInMillis
     }, calendar.get(Calendar.HOUR_OF_DAY), calendar.get(Calendar.MINUTE), false)
 
     val endTimePickerDialog = TimePickerDialog(context, { _, h, m ->
-        endCalendar.set(Calendar.HOUR_OF_DAY, h)
-        endCalendar.set(Calendar.MINUTE, m)
-        endTimeText = sdfTime.format(endCalendar.time)
-        endTimestamp = endCalendar.timeInMillis
+        endCalendar.set(Calendar.HOUR_OF_DAY, h); endCalendar.set(Calendar.MINUTE, m)
+        endTimeText = sdfTime.format(endCalendar.time); endTimestamp = endCalendar.timeInMillis
     }, endCalendar.get(Calendar.HOUR_OF_DAY), endCalendar.get(Calendar.MINUTE), false)
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Edit Event", fontWeight = FontWeight.Bold, fontSize = 26.sp) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Color.White)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.background)
+                    .padding(horizontal = 20.dp)
+                    .padding(top = 16.dp, bottom = 12.dp)
+                    .statusBarsPadding()
+            ) {
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(
+                        onClick = onBack,
+                        modifier = Modifier.size(44.dp).background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", modifier = Modifier.size(20.dp))
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = Color.White
-                )
-            )
-        }
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column {
+                        Text("MANAGEMENT", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.primary, letterSpacing = 1.5.sp)
+                        Text("Edit Event", fontSize = 32.sp, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onBackground)
+                    }
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+                HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+            }
+        },
+        containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            modifier = Modifier.fillMaxSize().padding(innerPadding).verticalScroll(rememberScrollState())
         ) {
-            // Image Section
+            // Hero Image Section
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(200.dp)
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(MaterialTheme.colorScheme.surface)
-                    .clickable { imagePickerLauncher.launch("image/*") },
-                contentAlignment = Alignment.Center
+                    .height(240.dp)
+                    .clickable { imagePickerLauncher.launch("image/*") }
             ) {
                 AsyncImage(
                     model = selectedImageUri ?: event.imageUrl ?: "https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
@@ -184,187 +171,179 @@ fun EventEditScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop
                 )
-                Box(
-                    modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.3f)),
-                    contentAlignment = Alignment.Center
+                Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.6f)))))
+
+                Surface(
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+                    color = MaterialTheme.colorScheme.primary,
+                    shape = RoundedCornerShape(12.dp)
                 ) {
-                    Icon(Icons.Default.Edit, "Change Image", tint = Color.White, modifier = Modifier.size(32.dp))
-                }
-            }
-
-            val textFieldColors = OutlinedTextFieldDefaults.colors(
-                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                focusedContainerColor = MaterialTheme.colorScheme.surface,
-                unfocusedBorderColor = Color.LightGray.copy(alpha = 0.5f),
-                disabledContainerColor = MaterialTheme.colorScheme.surface,
-                disabledBorderColor = Color.LightGray.copy(alpha = 0.5f),
-                disabledTextColor = MaterialTheme.colorScheme.onSurface,
-                disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            OutlinedTextField(
-                value = eventName,
-                onValueChange = { eventName = it },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("Event Name") },
-                shape = RoundedCornerShape(12.dp),
-                colors = textFieldColors
-            )
-
-            OutlinedTextField(
-                value = description,
-                onValueChange = { description = it },
-                modifier = Modifier.fillMaxWidth().height(120.dp),
-                label = { Text("Description") },
-                shape = RoundedCornerShape(12.dp),
-                colors = textFieldColors
-            )
-
-            // Category
-            var expanded by remember { mutableStateOf(false) }
-            Box {
-                OutlinedTextField(
-                    value = category,
-                    onValueChange = {},
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Category") },
-                    trailingIcon = { Icon(Icons.Default.KeyboardArrowDown, null) },
-                    shape = RoundedCornerShape(12.dp),
-                    readOnly = true,
-                    colors = textFieldColors,
-                    enabled = false
-                )
-                Box(modifier = Modifier.matchParentSize().clickable { expanded = true })
-                DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                    listOf("Meetup", "Dinner", "Party", "Workshop", "Other").forEach { cat ->
-                        DropdownMenuItem(text = { Text(cat) }, onClick = { category = cat; expanded = false })
+                    Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.PhotoCamera, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Change Photo", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     }
                 }
             }
 
-            // Date & Time
-            Box(modifier = Modifier.fillMaxWidth()) {
-                OutlinedTextField(
-                    value = dateText,
-                    onValueChange = {},
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Date") },
-                    leadingIcon = { Icon(Icons.Default.DateRange, null) },
-                    shape = RoundedCornerShape(12.dp),
-                    readOnly = true,
-                    colors = textFieldColors,
-                    enabled = false
-                )
-                Box(modifier = Modifier.matchParentSize().clickable { datePickerDialog.show() })
-            }
+            Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
+                // Section: Details
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Text("EVENT DETAILS", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, letterSpacing = 1.sp)
 
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Box(modifier = Modifier.weight(1f)) {
                     OutlinedTextField(
-                        value = startTimeText,
-                        onValueChange = {},
-                        label = { Text("Start") },
-                        leadingIcon = { Icon(Icons.Default.AccessTime, null) },
-                        shape = RoundedCornerShape(12.dp),
-                        readOnly = true,
-                        colors = textFieldColors,
-                        enabled = false
+                        value = eventName,
+                        onValueChange = { eventName = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Event Name") },
+                        shape = RoundedCornerShape(16.dp)
                     )
-                    Box(modifier = Modifier.matchParentSize().clickable { startTimePickerDialog.show() })
-                }
-                Box(modifier = Modifier.weight(1f)) {
+
                     OutlinedTextField(
-                        value = endTimeText,
-                        onValueChange = {},
-                        label = { Text("End") },
-                        leadingIcon = { Icon(Icons.Default.AccessTime, null) },
-                        shape = RoundedCornerShape(12.dp),
-                        readOnly = true,
-                        colors = textFieldColors,
-                        enabled = false
+                        value = description,
+                        onValueChange = { description = it },
+                        modifier = Modifier.fillMaxWidth().height(120.dp),
+                        label = { Text("Description") },
+                        shape = RoundedCornerShape(16.dp)
                     )
-                    Box(modifier = Modifier.matchParentSize().clickable { endTimePickerDialog.show() })
                 }
-            }
 
-            // Location
-            Column {
-                OutlinedTextField(
-                    value = address,
-                    onValueChange = { address = it; fetchAddressSuggestions(it) },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Location") },
-                    leadingIcon = { Icon(Icons.Default.LocationOn, null) },
-                    shape = RoundedCornerShape(12.dp),
-                    colors = textFieldColors
-                )
-                if (predictions.isNotEmpty()) {
-                    Card(modifier = Modifier.fillMaxWidth()) {
-                        predictions.forEach { prediction ->
-                            ListItem(
-                                headlineContent = { Text(prediction.getFullText(null).toString()) },
-                                modifier = Modifier.clickable { fetchPlaceDetails(prediction) }
-                            )
-                        }
-                    }
-                }
-            }
+                // Section: Logistics
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Text("LOGISTICS", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, letterSpacing = 1.sp)
 
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                OutlinedTextField(
-                    value = minPeople,
-                    onValueChange = { if (it.all { it.isDigit() }) minPeople = it },
-                    modifier = Modifier.weight(1f),
-                    label = { Text("Min People") },
-                    colors = textFieldColors
-                )
-                OutlinedTextField(
-                    value = maxPeople,
-                    onValueChange = { if (it.all { it.isDigit() }) maxPeople = it },
-                    modifier = Modifier.weight(1f),
-                    label = { Text("Max People") },
-                    colors = textFieldColors
-                )
-            }
-
-            if (isLoading) {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
-            } else {
-                Button(
-                    onClick = {
-                        if (eventName.isBlank() || address.isBlank()) {
-                            Toast.makeText(context, "Please fill required fields", Toast.LENGTH_SHORT).show()
-                            return@Button
-                        }
-                        isLoading = true
-                        val updatedEvent = event.copy(
-                            title = eventName,
-                            description = description,
-                            category = category,
-                            address = address,
-                            minParticipants = minPeople.toIntOrNull() ?: 0,
-                            maxParticipants = maxPeople.toIntOrNull(),
-                            foodOption = foodOption,
-                            isPublic = !isPrivate,
-                            timestamp = timestamp,
-                            endTimestamp = endTimestamp,
-                            location = eventLocation
+                    // Category Selector
+                    var expanded by remember { mutableStateOf(false) }
+                    Box {
+                        OutlinedTextField(
+                            value = category,
+                            onValueChange = {},
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Category") },
+                            trailingIcon = { Icon(Icons.Default.KeyboardArrowDown, null) },
+                            shape = RoundedCornerShape(16.dp),
+                            readOnly = true,
+                            enabled = false,
+                            colors = OutlinedTextFieldDefaults.colors(disabledTextColor = MaterialTheme.colorScheme.onSurface, disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant, disabledBorderColor = MaterialTheme.colorScheme.outline)
                         )
-                        viewModel.updateEvent(updatedEvent, selectedImageUri) { success, error ->
-                            isLoading = false
-                            if (success) {
-                                Toast.makeText(context, "Event updated!", Toast.LENGTH_SHORT).show()
-                                onBack()
-                            } else {
-                                Toast.makeText(context, error ?: "Update failed", Toast.LENGTH_SHORT).show()
+                        Box(modifier = Modifier.matchParentSize().clickable { expanded = true })
+                        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                            listOf("Meetup", "Dinner", "Party", "Workshop", "Other").forEach { cat ->
+                                DropdownMenuItem(text = { Text(cat) }, onClick = { category = cat; expanded = false })
                             }
                         }
-                    },
-                    modifier = Modifier.fillMaxWidth().height(56.dp),
-                    shape = RoundedCornerShape(28.dp)
-                ) {
-                    Text("Save Changes", fontWeight = FontWeight.Bold)
+                    }
+
+                    // Date Picker
+                    Box {
+                        OutlinedTextField(
+                            value = dateText,
+                            onValueChange = {},
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Event Date") },
+                            leadingIcon = { Icon(Icons.Default.DateRange, null) },
+                            shape = RoundedCornerShape(16.dp),
+                            readOnly = true,
+                            enabled = false,
+                            colors = OutlinedTextFieldDefaults.colors(disabledTextColor = MaterialTheme.colorScheme.onSurface, disabledBorderColor = MaterialTheme.colorScheme.outline)
+                        )
+                        Box(modifier = Modifier.matchParentSize().clickable { datePickerDialog.show() })
+                    }
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        Box(modifier = Modifier.weight(1f)) {
+                            OutlinedTextField(
+                                value = startTimeText, onValueChange = {}, label = { Text("Starts") },
+                                leadingIcon = { Icon(Icons.Default.AccessTime, null) }, shape = RoundedCornerShape(16.dp),
+                                readOnly = true, enabled = false, colors = OutlinedTextFieldDefaults.colors(disabledTextColor = MaterialTheme.colorScheme.onSurface, disabledBorderColor = MaterialTheme.colorScheme.outline)
+                            )
+                            Box(modifier = Modifier.matchParentSize().clickable { startTimePickerDialog.show() })
+                        }
+                        Box(modifier = Modifier.weight(1f)) {
+                            OutlinedTextField(
+                                value = endTimeText, onValueChange = {}, label = { Text("Ends") },
+                                leadingIcon = { Icon(Icons.Default.AccessTime, null) }, shape = RoundedCornerShape(16.dp),
+                                readOnly = true, enabled = false, colors = OutlinedTextFieldDefaults.colors(disabledTextColor = MaterialTheme.colorScheme.onSurface, disabledBorderColor = MaterialTheme.colorScheme.outline)
+                            )
+                            Box(modifier = Modifier.matchParentSize().clickable { endTimePickerDialog.show() })
+                        }
+                    }
                 }
+
+                // Section: Location
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("LOCATION", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, letterSpacing = 1.sp)
+                    OutlinedTextField(
+                        value = address,
+                        onValueChange = { address = it; fetchAddressSuggestions(it) },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Address") },
+                        leadingIcon = { Icon(Icons.Default.LocationOn, null) },
+                        shape = RoundedCornerShape(16.dp)
+                    )
+                    if (predictions.isNotEmpty()) {
+                        Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)) {
+                            Column {
+                                predictions.forEach { prediction ->
+                                    ListItem(
+                                        headlineContent = { Text(prediction.getFullText(null).toString(), fontSize = 14.sp) },
+                                        modifier = Modifier.clickable { fetchPlaceDetails(prediction) }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Section: Capacity
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    OutlinedTextField(
+                        value = minPeople,
+                        onValueChange = { if (it.all { char -> char.isDigit() }) minPeople = it },
+                        modifier = Modifier.weight(1f),
+                        label = { Text("Min Guest") },
+                        shape = RoundedCornerShape(16.dp)
+                    )
+                    OutlinedTextField(
+                        value = maxPeople,
+                        onValueChange = { if (it.all { char -> char.isDigit() }) maxPeople = it },
+                        modifier = Modifier.weight(1f),
+                        label = { Text("Max Guest") },
+                        shape = RoundedCornerShape(16.dp)
+                    )
+                }
+
+                // Save Action
+                if (isLoading) {
+                    CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
+                } else {
+                    Button(
+                        onClick = {
+                            if (eventName.isBlank() || address.isBlank()) {
+                                Toast.makeText(context, "Missing required fields", Toast.LENGTH_SHORT).show()
+                                return@Button
+                            }
+                            isLoading = true
+                            val updatedEvent = event.copy(
+                                title = eventName, description = description, category = category,
+                                address = address, minParticipants = minPeople.toIntOrNull() ?: 0,
+                                maxParticipants = maxPeople.toIntOrNull(), foodOption = foodOption,
+                                isPublic = !isPrivate, timestamp = timestamp, endTimestamp = endTimestamp,
+                                location = eventLocation
+                            )
+                            viewModel.updateEvent(updatedEvent, selectedImageUri) { success, error ->
+                                isLoading = false
+                                if (success) { Toast.makeText(context, "Event updated!", Toast.LENGTH_SHORT).show(); onBack() }
+                                else { Toast.makeText(context, error ?: "Failed", Toast.LENGTH_SHORT).show() }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Text("Save Changes", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    }
+                }
+                Spacer(modifier = Modifier.height(20.dp))
             }
         }
     }

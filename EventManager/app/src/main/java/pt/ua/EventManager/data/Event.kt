@@ -19,6 +19,7 @@ data class Event(
     val organizerName: String = "Anonymous",
     val participantsUids: List<String> = emptyList(), 
     val checkedInUids: List<String> = emptyList(),
+    val invitedUids: List<String> = emptyList(),
     val minParticipants: Int = 0,
     val maxParticipants: Int? = null, 
     val foodOption: String = "None",

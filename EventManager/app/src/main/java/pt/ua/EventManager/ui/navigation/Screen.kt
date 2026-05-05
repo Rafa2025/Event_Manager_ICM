@@ -3,6 +3,7 @@ package pt.ua.EventManager.ui.navigation
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Notifications
@@ -10,6 +11,7 @@ import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material.icons.filled.Search
 import pt.ua.EventManager.R
 
 sealed class Screen(val route: String, val title: String, val icon: Any) {
@@ -28,6 +30,9 @@ sealed class Screen(val route: String, val title: String, val icon: Any) {
     object QRScanner : Screen("qr_scanner", "Scanner", Icons.Default.QrCodeScanner)
     object ParticipantsList : Screen("participants_list", "Participants", Icons.Default.People)
     object EventEdit : Screen("event_edit", "Edit Event", Icons.Default.Edit)
+    object UserSearch : Screen("user_search", "Search Users", Icons.Default.Search)
+    object Friends : Screen("friends", "Friends", Icons.Default.People)
+    object EventHistory : Screen("event_history", "Event History", Icons.Default.History)
 }
 
 val navItems = listOf(
@@ -43,5 +48,8 @@ val navItems = listOf(
     Screen.QRCode,
     Screen.QRScanner,
     Screen.ParticipantsList,
-    Screen.EventEdit
+    Screen.EventEdit,
+    Screen.UserSearch,
+    Screen.Friends,
+    Screen.EventHistory
 )

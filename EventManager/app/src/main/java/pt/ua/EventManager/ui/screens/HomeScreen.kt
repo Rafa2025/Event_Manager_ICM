@@ -1,23 +1,28 @@
 package pt.ua.EventManager.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -37,57 +42,118 @@ fun HomeScreen(
     viewModel: EventViewModel = viewModel()
 ) {
     val allEvents by viewModel.events.collectAsState()
-    // Filter out private events
-    val publicEvents = allEvents.filter { it.isPublic }
+    val currentTime = System.currentTimeMillis()
+    // Show only active public events
+    val publicEvents = allEvents.filter { it.isPublic && it.endTimestamp > currentTime }
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text ="Home",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 26.sp
-                    )
-                },
-                actions = {
-                    IconButton(onClick = onNotificationsClick) {
-                        Icon(imageVector = Icons.Default.Notifications, contentDescription = null, tint = Color.White)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.background)
+                    .padding(horizontal = 20.dp)
+                    .padding(top = 16.dp, bottom = 12.dp)
+                    .statusBarsPadding()
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "Discover",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.primary,
+                            letterSpacing = 1.5.sp
+                        )
+                        Text(
+                            text = "Events",
+                            fontSize = 32.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = MaterialTheme.colorScheme.onBackground,
+                            lineHeight = 36.sp
+                        )
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = Color.White
+
+                    // Notification bell with subtle background
+                    IconButton(
+                        onClick = onNotificationsClick,
+                        modifier = Modifier
+                            .size(44.dp)
+                            .background(
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                shape = CircleShape
+                            )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.NotificationsNone,
+                            contentDescription = "Notifications",
+                            tint = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                // Subtle separator
+                HorizontalDivider(
+                    thickness = 1.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                 )
-            )
+            }
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
-                .padding(horizontal = 16.dp),
+                .padding(innerPadding),
             verticalArrangement = Arrangement.spacedBy(16.dp),
-            contentPadding = PaddingValues(vertical = 16.dp)
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 20.dp)
         ) {
             if (publicEvents.isEmpty()) {
                 item {
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 100.dp),
+                            .fillParentMaxSize()
+                            .padding(vertical = 80.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(
-                                imageVector = Icons.Default.EventBusy, 
-                                contentDescription = null, 
-                                modifier = Modifier.size(64.dp), 
-                                tint = Color.LightGray
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(80.dp)
+                                    .background(
+                                        MaterialTheme.colorScheme.primaryContainer,
+                                        CircleShape
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.EventBusy,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(36.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            Text(
+                                "No active events yet",
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.SemiBold
                             )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text("No public events found.", color = Color.Gray)
+                            Text(
+                                "Check back soon for upcoming events.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 14.sp
+                            )
                         }
                     }
                 }
@@ -105,107 +171,178 @@ fun EventCard(event: Event, onClick: () -> Unit) {
     val currentTime = System.currentTimeMillis()
     val isHappening = currentTime in event.timestamp..event.endTimestamp
     val isUpcoming = currentTime < event.timestamp
-    
+
     val statusText = when {
-        isHappening -> "Happening Now!"
+        isHappening -> "Live Now"
         isUpcoming -> {
             val diff = event.timestamp - currentTime
             val hours = TimeUnit.MILLISECONDS.toHours(diff)
-            val minutes = TimeUnit.MILLISECONDS.toMinutes(diff) % 60
             val days = TimeUnit.MILLISECONDS.toDays(diff)
-            
-            if (days > 0) "Starts in $days days"
-            else if (hours > 0) "Starts in $hours h $minutes min"
-            else "Starts in $minutes min"
+            if (days > 0) "In $days days" else if (hours > 0) "In ${hours}h" else "Soon"
         }
         else -> "Ended"
     }
-    val statusColor = if (isHappening) Color(0xFF2E7D32) else if (isUpcoming) MaterialTheme.colorScheme.primary else Color.Gray
 
-    val sdf = SimpleDateFormat("MMM dd, yyyy • h:mm a", Locale.getDefault())
-    val timeSdf = SimpleDateFormat("h:mm a", Locale.getDefault())
-    val dateString = "${sdf.format(Date(event.timestamp))} - ${timeSdf.format(Date(event.endTimestamp))}"
+    val statusColor = when {
+        isHappening -> Color(0xFF16A34A)
+        isUpcoming -> MaterialTheme.colorScheme.primary
+        else -> Color(0xFF9CA3AF)
+    }
+
+    val sdf = SimpleDateFormat("MMM dd • h:mm a", Locale.getDefault())
+    val dateString = sdf.format(Date(event.timestamp))
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        shape = RoundedCornerShape(20.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
     ) {
-        Column {
-            Box(modifier = Modifier.fillMaxWidth().height(180.dp)) {
-                if (event.imageUrl != null) {
-                    AsyncImage(
-                        model = event.imageUrl,
-                        contentDescription = null,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop,
-                        placeholder = painterResource(id = R.drawable.ic_launcher_background)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(220.dp)
+        ) {
+            // Cover image
+            AsyncImage(
+                model = event.imageUrl
+                    ?: "https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+                placeholder = painterResource(id = R.drawable.ic_launcher_background)
+            )
+
+            // Gradient overlay — lighter at top, richer at bottom
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            0f to Color.Transparent,
+                            0.4f to Color.Black.copy(alpha = 0.1f),
+                            1f to Color.Black.copy(alpha = 0.82f)
+                        )
                     )
-                } else {
-                    AsyncImage(
-                        model = "https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-                        contentDescription = null,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
-                }
-                
-                // Status Badge
+            )
+
+            // Live dot indicator for ongoing events
+            if (isHappening) {
+                Box(
+                    modifier = Modifier
+                        .padding(14.dp)
+                        .align(Alignment.TopEnd)
+                        .background(Color(0xFF16A34A), CircleShape)
+                        .size(10.dp)
+                )
+            }
+
+            // Category chip — top left
+            Surface(
+                modifier = Modifier
+                    .padding(14.dp)
+                    .align(Alignment.TopStart),
+                color = Color.White.copy(alpha = 0.15f),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text(
+                    text = event.category.uppercase(),
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                    color = Color.White,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.2.sp
+                )
+            }
+
+            // Bottom content
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                // Status pill
                 Surface(
-                    modifier = Modifier.padding(12.dp).align(Alignment.TopEnd),
-                    color = statusColor,
-                    shape = RoundedCornerShape(8.dp)
+                    color = statusColor.copy(alpha = 0.9f),
+                    shape = RoundedCornerShape(6.dp)
                 ) {
                     Text(
                         text = statusText,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
                         color = Color.White,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.5.sp
                     )
                 }
-            }
-            Column(modifier = Modifier.padding(16.dp)) {
+
                 Text(
-                    event.title,
+                    text = event.title,
                     fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    lineHeight = 24.sp
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-                HomeScreenInfoRow(Icons.Default.Schedule, dateString)
-                HomeScreenInfoRow(Icons.Default.Place, event.address)
-                
-                val attendingText = if (event.maxParticipants != null) {
-                    "${event.participantsUids.size}/${event.maxParticipants} attending"
-                } else {
-                    "${event.participantsUids.size} attending"
-                }
-                HomeScreenInfoRow(Icons.Default.People, attendingText)
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Host: ", color = Color.Gray, fontSize = 14.sp)
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Schedule,
+                                null,
+                                modifier = Modifier.size(12.dp),
+                                tint = Color.White.copy(alpha = 0.75f)
+                            )
+                            Text(
+                                dateString,
+                                color = Color.White.copy(alpha = 0.75f),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.People,
+                                null,
+                                modifier = Modifier.size(12.dp),
+                                tint = Color.White.copy(alpha = 0.75f)
+                            )
+                            Text(
+                                "${event.participantsUids.size} going",
+                                color = Color.White.copy(alpha = 0.75f),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                    // Organizer pill
                     Text(
-                        event.organizerName,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp,
-                        color = MaterialTheme.colorScheme.onSurface
+                        text = "by ${event.organizerName}",
+                        color = Color.White.copy(alpha = 0.5f),
+                        fontSize = 11.sp,
+                        maxLines = 1
                     )
                 }
             }
         }
-    }
-}
-
-@Composable
-fun HomeScreenInfoRow(icon: ImageVector, text: String) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 2.dp)) {
-        Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.Gray)
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(text, color = Color.Gray, fontSize = 14.sp)
     }
 }

@@ -5,10 +5,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -17,21 +16,22 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import pt.ua.EventManager.data.Event
-import pt.ua.EventManager.ui.viewmodels.UserViewModel
+import pt.ua.EventManager.ui.viewmodels.EventViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ParticipantsListScreen(
-    event: Event?,
+fun EventHistoryScreen(
     onBack: () -> Unit,
-    userViewModel: UserViewModel
+    onEventClick: (Event) -> Unit,
+    viewModel: EventViewModel = viewModel()
 ) {
-    if (event == null) return
+    val allEvents by viewModel.events.collectAsState()
+    val completedEvents = viewModel.getCompletedEvents(allEvents)
 
     Scaffold(
         topBar = {
-            // Modern Header with scannable hierarchy
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -53,21 +53,20 @@ fun ParticipantsListScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back",
-                            modifier = Modifier.size(20.dp),
-                            tint = MaterialTheme.colorScheme.onSurface
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                     Spacer(modifier = Modifier.width(16.dp))
                     Column {
                         Text(
-                            text = "GUEST LIST",
+                            text = "History",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.primary,
                             letterSpacing = 1.5.sp
                         )
                         Text(
-                            text = "Participants",
+                            text = "Event History",
                             fontSize = 32.sp,
                             fontWeight = FontWeight.ExtraBold,
                             color = MaterialTheme.colorScheme.onBackground,
@@ -84,14 +83,17 @@ fun ParticipantsListScreen(
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
-        if (event.participantsUids.isEmpty()) {
+        if (completedEvents.isEmpty()) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding),
                 contentAlignment = Alignment.Center
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
                     Box(
                         modifier = Modifier
                             .size(80.dp)
@@ -99,18 +101,22 @@ fun ParticipantsListScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Default.People,
+                            imageVector = Icons.Default.History,
                             contentDescription = null,
                             modifier = Modifier.size(36.dp),
-                            tint = MaterialTheme.colorScheme.outline
+                            tint = MaterialTheme.colorScheme.primary
                         )
                     }
-                    Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        "No participants yet.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        text = "No completed events",
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = "Events you host or attend will appear here.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 14.sp
                     )
                 }
             }
@@ -119,87 +125,12 @@ fun ParticipantsListScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding),
-                contentPadding = PaddingValues(20.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                contentPadding = PaddingValues(20.dp)
             ) {
-                items(event.participantsUids) { uid ->
-                    ParticipantRow(
-                        uid = uid,
-                        isPresent = event.checkedInUids.contains(uid),
-                        userViewModel = userViewModel
-                    )
+                items(completedEvents) { event ->
+                    MyEventAestheticCard(event = event, onClick = {  })
                 }
-            }
-        }
-    }
-}
-
-@Composable
-fun ParticipantRow(uid: String, isPresent: Boolean, userViewModel: UserViewModel) {
-    var userName by remember { mutableStateOf("Loading...") }
-
-    LaunchedEffect(uid) {
-        userViewModel.getUserName(uid) { name ->
-            userName = name ?: "Unknown User"
-        }
-    }
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Reusing existing CommonAvatar helper
-            CommonAvatar(
-                text = if (userName != "Loading...") userName.take(1).uppercase() else "?",
-                color = if (isPresent) Color(0xFF10B981) else MaterialTheme.colorScheme.primary
-            )
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = userName,
-                    fontWeight = FontWeight.ExtraBold,
-                    fontSize = 16.sp,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = if (isPresent) "Attended" else "Not checked-in",
-                    fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            if (isPresent) {
-                Surface(
-                    color = Color(0xFF10B981).copy(alpha = 0.15f),
-                    shape = RoundedCornerShape(10.dp)
-                ) {
-                    Text(
-                        "PRESENT",
-                        color = Color(0xFF059669),
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.5.sp
-                    )
-                }
-            } else {
-                Text(
-                    "PENDING",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.5.sp
-                )
             }
         }
     }

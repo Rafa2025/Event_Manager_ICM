@@ -1,8 +1,10 @@
 package pt.ua.EventManager.ui.screens
 
 import android.widget.Toast
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -28,21 +30,63 @@ enum class AuthMode { SELECTION, LOGIN, SIGNUP }
 @Composable
 fun LoginScreen(userViewModel: UserViewModel = viewModel(), onLoginSuccess: () -> Unit) {
     var authMode by remember { mutableStateOf(AuthMode.SELECTION) }
-    val context = LocalContext.current
 
     Scaffold(
         topBar = {
             if (authMode != AuthMode.SELECTION) {
-                TopAppBar(
-                    title = { Text(if (authMode == AuthMode.LOGIN) "Login" else "Create Account") },
-                    navigationIcon = {
-                        IconButton(onClick = { authMode = AuthMode.SELECTION }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                // Modern Header matching Notifications/Details screens
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.background)
+                        .padding(horizontal = 20.dp)
+                        .padding(top = 16.dp, bottom = 12.dp)
+                        .statusBarsPadding()
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(
+                            onClick = { authMode = AuthMode.SELECTION },
+                            modifier = Modifier
+                                .size(44.dp)
+                                .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Back",
+                                modifier = Modifier.size(20.dp),
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Column {
+                            Text(
+                                text = "Authentication",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.primary,
+                                letterSpacing = 1.5.sp
+                            )
+                            Text(
+                                text = if (authMode == AuthMode.LOGIN) "Login" else "Sign Up",
+                                fontSize = 32.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = MaterialTheme.colorScheme.onBackground,
+                                lineHeight = 36.sp
+                            )
                         }
                     }
-                )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    HorizontalDivider(
+                        thickness = 1.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    )
+                }
             }
-        }
+        },
+        containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
         Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
             when (authMode) {
@@ -61,28 +105,49 @@ fun AuthSelectionContent(onModeSelected: (AuthMode) -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text("Event Manager", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+        Text(
+            text = "EVENT MANAGER",
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+            letterSpacing = 2.sp
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "Gather Together",
+            fontSize = 32.sp,
+            fontWeight = FontWeight.ExtraBold,
+            color = MaterialTheme.colorScheme.onBackground
+        )
         Spacer(modifier = Modifier.height(16.dp))
-        Text("Join the community and manage your events.", color = Color.Gray, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-        
+        Text(
+            text = "Join the community and manage your events with ease.",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            fontSize = 16.sp,
+            lineHeight = 24.sp
+        )
+
         Spacer(modifier = Modifier.height(48.dp))
-        
+
         Button(
             onClick = { onModeSelected(AuthMode.LOGIN) },
             modifier = Modifier.fillMaxWidth().height(56.dp),
-            shape = RoundedCornerShape(28.dp)
+            shape = RoundedCornerShape(16.dp),
+            elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
         ) {
-            Text("Sign In", fontWeight = FontWeight.Bold)
+            Text("Sign In", fontWeight = FontWeight.Bold, fontSize = 16.sp)
         }
-        
+
         Spacer(modifier = Modifier.height(16.dp))
-        
+
         OutlinedButton(
             onClick = { onModeSelected(AuthMode.SIGNUP) },
             modifier = Modifier.fillMaxWidth().height(56.dp),
-            shape = RoundedCornerShape(28.dp)
+            shape = RoundedCornerShape(16.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
         ) {
-            Text("Create Account", fontWeight = FontWeight.Bold)
+            Text("Create Account", fontWeight = FontWeight.Bold, fontSize = 16.sp)
         }
     }
 }
@@ -95,37 +160,40 @@ fun LoginForm(userViewModel: UserViewModel, onLoginSuccess: () -> Unit) {
     val context = LocalContext.current
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState()),
-        horizontalAlignment = Alignment.CenterHorizontally
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp)
+            .verticalScroll(rememberScrollState()),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text("Welcome Back", fontSize = 24.sp, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.height(32.dp))
-        
+        Spacer(modifier = Modifier.height(20.dp))
+
         OutlinedTextField(
             value = email,
             onValueChange = { email = it },
-            label = { Text("Email") },
+            label = { Text("Email Address") },
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
+            shape = RoundedCornerShape(16.dp),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+            singleLine = true
         )
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
+
         OutlinedTextField(
             value = password,
             onValueChange = { password = it },
             label = { Text("Password") },
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
+            shape = RoundedCornerShape(16.dp),
             visualTransformation = PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+            singleLine = true
         )
-        
-        Spacer(modifier = Modifier.height(32.dp))
-        
+
+        Spacer(modifier = Modifier.height(16.dp))
+
         if (isLoading) {
-            CircularProgressIndicator()
+            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
         } else {
             Button(
                 onClick = {
@@ -141,9 +209,9 @@ fun LoginForm(userViewModel: UserViewModel, onLoginSuccess: () -> Unit) {
                     }
                 },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
-                shape = RoundedCornerShape(28.dp)
+                shape = RoundedCornerShape(16.dp)
             ) {
-                Text("Login", fontWeight = FontWeight.Bold)
+                Text("Sign In", fontWeight = FontWeight.Bold, fontSize = 16.sp)
             }
         }
     }
@@ -158,47 +226,49 @@ fun SignupForm(userViewModel: UserViewModel, onLoginSuccess: () -> Unit) {
     val context = LocalContext.current
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState()),
-        horizontalAlignment = Alignment.CenterHorizontally
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp)
+            .verticalScroll(rememberScrollState()),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text("Create Account", fontSize = 24.sp, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.height(32.dp))
-        
+        Spacer(modifier = Modifier.height(20.dp))
+
         OutlinedTextField(
             value = name,
             onValueChange = { name = it },
             label = { Text("Full Name") },
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp)
+            shape = RoundedCornerShape(16.dp),
+            singleLine = true
         )
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
+
         OutlinedTextField(
             value = email,
             onValueChange = { email = it },
-            label = { Text("Email") },
+            label = { Text("Email Address") },
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
+            shape = RoundedCornerShape(16.dp),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+            singleLine = true
         )
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
+
         OutlinedTextField(
             value = password,
             onValueChange = { password = it },
-            label = { Text("Password") },
+            label = { Text("Create Password") },
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
+            shape = RoundedCornerShape(16.dp),
             visualTransformation = PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+            singleLine = true
         )
-        
-        Spacer(modifier = Modifier.height(32.dp))
-        
+
+        Spacer(modifier = Modifier.height(16.dp))
+
         if (isLoading) {
-            CircularProgressIndicator()
+            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
         } else {
             Button(
                 onClick = {
@@ -214,9 +284,9 @@ fun SignupForm(userViewModel: UserViewModel, onLoginSuccess: () -> Unit) {
                     }
                 },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
-                shape = RoundedCornerShape(28.dp)
+                shape = RoundedCornerShape(16.dp)
             ) {
-                Text("Register", fontWeight = FontWeight.Bold)
+                Text("Get Started", fontWeight = FontWeight.Bold, fontSize = 16.sp)
             }
         }
     }

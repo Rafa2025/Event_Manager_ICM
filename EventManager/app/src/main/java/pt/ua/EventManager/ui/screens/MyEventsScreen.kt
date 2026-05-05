@@ -1,5 +1,6 @@
 package pt.ua.EventManager.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -8,12 +9,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -32,45 +35,82 @@ fun MyEventsScreen(
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
     val tabs = listOf("Hosting", "Attending")
-    
+
     val allEvents by viewModel.events.collectAsState()
-    
-    // Filtros dinâmicos
-    val hostingEvents = viewModel.getHostingEvents(allEvents)
-    val attendingEvents = viewModel.getAttendingEvents(allEvents)
+    // Show only active events in this screen
+    val hostingEvents = viewModel.getActiveHostingEvents(allEvents)
+    val attendingEvents = viewModel.getActiveAttendingEvents(allEvents)
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text ="My Events",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 26.sp
-                    )
-                },
-                actions = {
-                    IconButton(onClick = onNotificationsClick) {
-                        Icon(imageVector = Icons.Default.Notifications, contentDescription = null, tint = Color.White)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.background)
+                    .padding(horizontal = 20.dp)
+                    .padding(top = 16.dp, bottom = 12.dp)
+                    .statusBarsPadding()
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "Collection",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.primary,
+                            letterSpacing = 1.5.sp
+                        )
+                        Text(
+                            text = "My Events",
+                            fontSize = 32.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = MaterialTheme.colorScheme.onBackground,
+                            lineHeight = 36.sp
+                        )
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = Color.White
+
+                    IconButton(
+                        onClick = onNotificationsClick,
+                        modifier = Modifier
+                            .size(44.dp)
+                            .background(
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                shape = CircleShape
+                            )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.NotificationsNone,
+                            contentDescription = "Notifications",
+                            tint = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                HorizontalDivider(
+                    thickness = 1.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                 )
-            )
+            }
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
         Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
             TabRow(
                 selectedTabIndex = selectedTab,
-                containerColor = Color.Transparent,
+                containerColor = MaterialTheme.colorScheme.background,
                 contentColor = MaterialTheme.colorScheme.primary,
                 indicator = { tabPositions ->
                     TabRowDefaults.SecondaryIndicator(
                         Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
-                        color = MaterialTheme.colorScheme.primary
+                        color = MaterialTheme.colorScheme.primary,
+                        height = 3.dp
                     )
                 },
                 divider = {}
@@ -82,8 +122,8 @@ fun MyEventsScreen(
                         text = {
                             Text(
                                 title,
-                                color = if (selectedTab == index) MaterialTheme.colorScheme.primary else Color.Gray,
-                                fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal
+                                fontSize = 14.sp,
+                                fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Medium
                             )
                         }
                     )
@@ -91,25 +131,53 @@ fun MyEventsScreen(
             }
 
             LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                contentPadding = PaddingValues(20.dp)
             ) {
                 val currentList = if (selectedTab == 0) hostingEvents else attendingEvents
-                
+
                 if (currentList.isEmpty()) {
                     item {
-                        Box(Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) {
-                            Text(
-                                text = if (selectedTab == 0) "You are not hosting any events." else "You are not attending any events.",
-                                color = Color.Gray,
-                                fontSize = 16.sp
-                            )
+                        Box(
+                            modifier = Modifier.fillParentMaxSize().padding(bottom = 60.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(80.dp)
+                                        .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = if (selectedTab == 0) Icons.Default.EventNote else Icons.Default.EventAvailable,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(36.dp),
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                                Text(
+                                    text = if (selectedTab == 0) "No active events hosted" else "No active events joined",
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    text = "Completed events moved to your Profile History.",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 14.sp
+                                )
+                            }
                         }
                     }
                 }
 
                 items(currentList) { event ->
-                    MyEventRealCard(event, onClick = { onEventClick(event, selectedTab == 0) })
+                    MyEventAestheticCard(event, onClick = { onEventClick(event, selectedTab == 0) })
                 }
             }
         }
@@ -117,56 +185,122 @@ fun MyEventsScreen(
 }
 
 @Composable
-fun MyEventRealCard(event: Event, onClick: () -> Unit = {}) {
+fun MyEventAestheticCard(event: Event, onClick: () -> Unit) {
     val sdf = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
     val dateString = sdf.format(Date(event.timestamp))
+    val currentTime = System.currentTimeMillis()
+
+    val (statusText, statusColor) = when {
+        currentTime < event.timestamp -> "UPCOMING" to MaterialTheme.colorScheme.primary
+        currentTime in event.timestamp..event.endTimestamp -> "LIVE" to Color(0xFF16A34A)
+        else -> "ENDED" to Color(0xFF9CA3AF)
+    }
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(32.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
-            modifier = Modifier.padding(20.dp).fillMaxWidth(),
+            modifier = Modifier.padding(16.dp).fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(event.title, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                Spacer(modifier = Modifier.height(8.dp))
-                Surface(
-                    color = if (event.isPublic) Color(0xFF10B981) else Color(0xFF6366F1), 
-                    shape = RoundedCornerShape(12.dp)
-                ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Surface(
+                        color = (if (event.isPublic) Color(0xFF16A34A) else MaterialTheme.colorScheme.primary).copy(alpha = 0.1f),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(
+                            text = if (event.isPublic) "PUBLIC" else "PRIVATE",
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            color = if (event.isPublic) Color(0xFF16A34A) else MaterialTheme.colorScheme.primary,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.5.sp
+                        )
+                    }
+
+                    Surface(
+                        color = statusColor.copy(alpha = 0.1f),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(
+                            text = statusText,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            color = statusColor,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.5.sp
+                        )
+                    }
+
                     Text(
-                        if (event.isPublic) "Public" else "Private",
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                        color = Color.White,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
+                        text = event.category.uppercase(),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.2.sp
                     )
                 }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = event.title,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1
+                )
+
                 Spacer(modifier = Modifier.height(12.dp))
-                CommonInfoRow(Icons.Default.AccessTime, dateString)
-                CommonInfoRow(Icons.Default.LocationOn, event.address)
-                CommonInfoRow(Icons.Default.Groups, "${event.participantsUids.size} people")
+
+                SmallInfoRow(Icons.Default.CalendarToday, dateString)
+                SmallInfoRow(Icons.Default.Place, event.address)
             }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
             Surface(
                 color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
-                shape = CircleShape,
-                modifier = Modifier.size(56.dp)
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.size(52.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Text(
-                        event.participantsUids.size.toString(),
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp
-                    )
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = event.participantsUids.size.toString(),
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 16.sp
+                        )
+                        Icon(
+                            Icons.Default.People,
+                            null,
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
             }
         }
+    }
+}
+
+@Composable
+fun SmallInfoRow(icon: ImageVector, text: String) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 2.dp)) {
+        Icon(icon, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f))
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = text,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 12.sp,
+            maxLines = 1
+        )
     }
 }
