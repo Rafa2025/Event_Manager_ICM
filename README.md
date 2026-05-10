@@ -4,7 +4,6 @@ TODO list:
 - Notifications: notifications system
 - MyEvents:
   Hosting:
-	-> Participant List
 	-> Private Event Link Sharing
 	-> AI suggestions
   Attending:
