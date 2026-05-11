@@ -49,7 +49,7 @@ fun EventChatSection(
             .fillMaxWidth()
             .heightIn(max = 450.dp)
     ) {
-        Text("Event Chat", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+        Text("Event Chat", fontWeight = FontWeight.Bold, fontSize = 20.sp)
         Spacer(modifier = Modifier.height(12.dp))
         
         Card(

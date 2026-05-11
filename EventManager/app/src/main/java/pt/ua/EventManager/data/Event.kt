@@ -13,11 +13,13 @@ data class Event(
     val location: GeoPoint = GeoPoint(0.0, 0.0), 
     val address: String = "", 
     val timestamp: Long = System.currentTimeMillis(), 
+    val endTimestamp: Long = System.currentTimeMillis() + 3600000, // Default 1 hour later
     val imageUrl: String? = null, 
     val organizerUid: String = "", 
     val organizerName: String = "Anonymous",
     val participantsUids: List<String> = emptyList(), 
     val checkedInUids: List<String> = emptyList(),
+    val invitedUids: List<String> = emptyList(),
     val minParticipants: Int = 0,
     val maxParticipants: Int? = null, 
     val foodOption: String = "None",

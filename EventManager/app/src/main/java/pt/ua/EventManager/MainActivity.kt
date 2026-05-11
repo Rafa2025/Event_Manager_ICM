@@ -64,7 +64,11 @@ class MainActivity : ComponentActivity() {
                         Screen.AttendingDetails,
                         Screen.QRCode,
                         Screen.QRScanner,
-                        Screen.ParticipantsList
+                        Screen.ParticipantsList,
+                        Screen.EventEdit,
+                        Screen.UserSearch,
+                        Screen.Friends,
+                        Screen.EventHistory
                     )
                 }
 
@@ -244,10 +248,23 @@ class MainActivity : ComponentActivity() {
                                         // Stay on page
                                     }
                                 } else {
-                                    ProfileScreen(onNotificationsClick = { navigateTo(allScreens.indexOf(Screen.Notifications)) }, userViewModel = userViewModel)
+                                    ProfileScreen(
+                                        onNotificationsClick = { navigateTo(allScreens.indexOf(Screen.Notifications)) },
+                                        onSearchUsersClick = { navigateTo(allScreens.indexOf(Screen.UserSearch)) },
+                                        onFriendsClick = { navigateTo(allScreens.indexOf(Screen.Friends)) },
+                                        onEventHistoryClick = { navigateTo(allScreens.indexOf(Screen.EventHistory)) },
+                                        userViewModel = userViewModel
+                                    )
                                 }
                             }
-                            Screen.Notifications -> NotificationsScreen(onBack = { navigateBack() })
+                            Screen.Notifications -> NotificationsScreen(
+                                onBack = { navigateBack() },
+                                onNavigateToFriends = { navigateTo(allScreens.indexOf(Screen.Friends)) },
+                                onNavigateToEventDetails = { event ->
+                                    selectedEvent = event
+                                    navigateTo(allScreens.indexOf(Screen.EventDetails))
+                                }
+                            )
                             Screen.EventDetails -> EventDetailsScreen(
                                 event = selectedEvent,
                                 onBack = { navigateBack() }
@@ -260,6 +277,9 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onParticipantsClick = {
                                     navigateTo(allScreens.indexOf(Screen.ParticipantsList))
+                                },
+                                onEditClick = {
+                                    navigateTo(allScreens.indexOf(Screen.EventEdit))
                                 }
                             )
                             Screen.AttendingDetails -> AttendingDetailsScreen(
@@ -291,6 +311,29 @@ class MainActivity : ComponentActivity() {
                                 event = selectedMyEvent,
                                 onBack = { navigateBack() },
                                 userViewModel = userViewModel
+                            )
+                            Screen.EventEdit -> EventEditScreen(
+                                event = selectedMyEvent,
+                                onBack = { navigateBack() }
+                            )
+                            Screen.UserSearch -> UserSearchScreen(
+                                onBack = { navigateBack() },
+                                userViewModel = userViewModel
+                            )
+                            Screen.Friends -> FriendsScreen(
+                                onBack = { navigateBack() },
+                                onSearchClick = { navigateTo(allScreens.indexOf(Screen.UserSearch)) },
+                                userViewModel = userViewModel
+                            )
+                            Screen.EventHistory -> EventHistoryScreen(
+                                onBack = { navigateBack() },
+                                onEventClick = { event ->
+                                    selectedMyEvent = event
+                                    // Navigate to details depending on role, but for history we can use a generic one or just the existing ones
+                                    val isHosting = event.organizerUid == currentUser?.uid
+                                    val route = if (isHosting) Screen.HostingDetails else Screen.AttendingDetails
+                                    navigateTo(allScreens.indexOf(route))
+                                }
                             )
                         }
                     }

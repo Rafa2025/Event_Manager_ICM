@@ -8,6 +8,10 @@ data class User(
     val name: String = "",
     val email: String = "",
     val photoUrl: String? = null,
+    val location: String = "",
     val registeredEvents: List<String> = emptyList(),
-    val createdEvents: List<String> = emptyList()
+    val createdEvents: List<String> = emptyList(),
+    val friends: List<String> = emptyList(),
+    val friendRequestsSent: List<String> = emptyList(),
+    val friendRequestsReceived: List<String> = emptyList()
 )
