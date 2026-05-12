@@ -18,6 +18,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -54,30 +55,34 @@ fun EventEditScreen(
     val calendar = Calendar.getInstance().apply { timeInMillis = event.timestamp }
     val endCalendar = Calendar.getInstance().apply { timeInMillis = event.endTimestamp }
 
-    // Form states
-    var eventName by remember { mutableStateOf(event.title) }
-    var description by remember { mutableStateOf(event.description) }
-    var category by remember { mutableStateOf(event.category) }
-
     val sdfDate = SimpleDateFormat("MM/dd/yy", Locale.getDefault())
     val sdfTime = SimpleDateFormat("hh:mm a", Locale.getDefault())
 
-    var dateText by remember { mutableStateOf(sdfDate.format(Date(event.timestamp))) }
-    var startTimeText by remember { mutableStateOf(sdfTime.format(Date(event.timestamp))) }
-    var endTimeText by remember { mutableStateOf(sdfTime.format(Date(event.endTimestamp))) }
+    // Form states - Using rememberSaveable to survive rotation
+    var eventName by rememberSaveable { mutableStateOf(event.title) }
+    var description by rememberSaveable { mutableStateOf(event.description) }
+    var category by rememberSaveable { mutableStateOf(event.category) }
 
-    var address by remember { mutableStateOf(event.address) }
-    var eventLocation by remember { mutableStateOf(event.location) }
+    var dateText by rememberSaveable { mutableStateOf(sdfDate.format(Date(event.timestamp))) }
+    var startTimeText by rememberSaveable { mutableStateOf(sdfTime.format(Date(event.timestamp))) }
+    var endTimeText by rememberSaveable { mutableStateOf(sdfTime.format(Date(event.endTimestamp))) }
+
+    var address by rememberSaveable { mutableStateOf(event.address) }
     
-    var minPeople by remember { mutableStateOf(event.minParticipants.toString()) }
-    var maxPeople by remember { mutableStateOf(event.maxParticipants?.toString() ?: "") }
-    var foodOption by remember { mutableStateOf(event.foodOption) }
-    var isPrivate by remember { mutableStateOf(!event.isPublic) }
-    var isLoading by remember { mutableStateOf(false) }
-    var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
+    // Storing GeoPoint components as doubles for rememberSaveable
+    var lat by rememberSaveable { mutableDoubleStateOf(event.location.latitude) }
+    var lng by rememberSaveable { mutableDoubleStateOf(event.location.longitude) }
+    val eventLocation = GeoPoint(lat, lng)
+    
+    var minPeople by rememberSaveable { mutableStateOf(event.minParticipants.toString()) }
+    var maxPeople by rememberSaveable { mutableStateOf(event.maxParticipants?.toString() ?: "") }
+    var foodOption by rememberSaveable { mutableStateOf(event.foodOption) }
+    var isPrivate by rememberSaveable { mutableStateOf(!event.isPublic) }
+    var isLoading by rememberSaveable { mutableStateOf(false) }
+    var selectedImageUri by rememberSaveable { mutableStateOf<Uri?>(null) }
 
-    var timestamp by remember { mutableLongStateOf(event.timestamp) }
-    var endTimestamp by remember { mutableLongStateOf(event.endTimestamp) }
+    var timestamp by rememberSaveable { mutableLongStateOf(event.timestamp) }
+    var endTimestamp by rememberSaveable { mutableLongStateOf(event.endTimestamp) }
 
     val imagePickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri -> selectedImageUri = uri }
 
@@ -250,7 +255,8 @@ fun EventEditScreen(
                         onAddressChange = { address = it },
                         onLocationSelected = { selectedAddress, location ->
                             address = selectedAddress
-                            eventLocation = location
+                            lat = location.latitude
+                            lng = location.longitude
                         },
                         modifier = Modifier.fillMaxWidth()
                     )

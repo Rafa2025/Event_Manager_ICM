@@ -13,6 +13,7 @@ import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -32,9 +33,10 @@ fun MyEventsScreen(
     onNotificationsClick: () -> Unit = {},
     onEventClick: (Event, Boolean) -> Unit = { _, _ -> },
     viewModel: EventViewModel = viewModel(),
-    initialTab: Int = 0
+    initialTab: Int = 0,
+    onTabChange: (Int) -> Unit = {}
 ) {
-    var selectedTab by remember(initialTab) { mutableIntStateOf(initialTab) }
+    var selectedTab by rememberSaveable { mutableIntStateOf(initialTab) }
     val tabs = listOf("Hosting", "Attending")
 
     val allEvents by viewModel.events.collectAsState()
@@ -119,7 +121,10 @@ fun MyEventsScreen(
                 tabs.forEachIndexed { index, title ->
                     Tab(
                         selected = selectedTab == index,
-                        onClick = { selectedTab = index },
+                        onClick = { 
+                            selectedTab = index
+                            onTabChange(index)
+                        },
                         text = {
                             Text(
                                 title,

@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -27,10 +28,12 @@ import pt.ua.EventManager.ui.viewmodels.UserViewModel
 fun FriendsScreen(
     onBack: () -> Unit,
     onSearchClick: () -> Unit,
-    userViewModel: UserViewModel = viewModel()
+    userViewModel: UserViewModel = viewModel(),
+    initialTab: Int = 0,
+    onTabChange: (Int) -> Unit = {}
 ) {
     val currentUser by userViewModel.currentUser.collectAsState()
-    var selectedTab by remember { mutableIntStateOf(0) }
+    var selectedTab by rememberSaveable { mutableIntStateOf(initialTab) }
 
     Scaffold(
         topBar = {
@@ -85,12 +88,18 @@ fun FriendsScreen(
                 ) {
                     Tab(
                         selected = selectedTab == 0,
-                        onClick = { selectedTab = 0 },
+                        onClick = { 
+                            selectedTab = 0 
+                            onTabChange(0)
+                        },
                         text = { Text("My Friends", fontWeight = FontWeight.Bold) }
                     )
                     Tab(
                         selected = selectedTab == 1,
-                        onClick = { selectedTab = 1 },
+                        onClick = { 
+                            selectedTab = 1 
+                            onTabChange(1)
+                        },
                         text = { 
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text("Requests", fontWeight = FontWeight.Bold)

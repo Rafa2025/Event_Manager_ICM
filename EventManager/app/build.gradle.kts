@@ -49,7 +49,7 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.compose.foundation)
     
-    // Google Maps & Places
+    // Google Maps & Places - Usando apenas a referência do catálogo
     implementation(libs.maps.compose)
     implementation(libs.google.places)
 

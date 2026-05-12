@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -32,18 +33,18 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
-import com.google.android.libraries.places.api.Places
-import com.google.android.libraries.places.api.model.AutocompletePrediction
-import com.google.android.libraries.places.api.model.AutocompleteSessionToken
-import com.google.android.libraries.places.api.model.Place
-import com.google.android.libraries.places.api.net.FetchPlaceRequest
-import com.google.android.libraries.places.api.net.FindAutocompletePredictionsRequest
 import com.google.firebase.firestore.GeoPoint
 import pt.ua.EventManager.data.Event
 import pt.ua.EventManager.ui.viewmodels.EventViewModel
 import pt.ua.EventManager.ui.viewmodels.UserViewModel
 import java.text.SimpleDateFormat
 import java.util.*
+import com.google.android.libraries.places.api.Places
+import com.google.android.libraries.places.api.model.AutocompletePrediction
+import com.google.android.libraries.places.api.model.Place
+import com.google.android.libraries.places.api.net.FetchPlaceRequest
+import com.google.android.libraries.places.api.net.FindAutocompletePredictionsRequest
+import androidx.compose.ui.window.PopupProperties
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,35 +58,32 @@ fun EventCreateScreen(
     val endCalendar = Calendar.getInstance()
     val currentUser by userViewModel.currentUser.collectAsState()
 
-    // Places API states
-    val placesClient = remember { Places.createClient(context) }
-    val sessionToken = remember { AutocompleteSessionToken.newInstance() }
-    var predictions by remember { mutableStateOf<List<AutocompletePrediction>>(emptyList()) }
-    var eventLocation by remember { mutableStateOf(GeoPoint(0.0, 0.0)) }
-
     // Form States
-    var eventName by remember { mutableStateOf("") }
-    var description by remember { mutableStateOf("") }
-    var category by remember { mutableStateOf("Meetup") }
+    var eventName by rememberSaveable { mutableStateOf("") }
+    var description by rememberSaveable { mutableStateOf("") }
+    var category by rememberSaveable { mutableStateOf("Meetup") }
 
     val sdfDate = SimpleDateFormat("MM/dd/yy", Locale.getDefault())
     val sdfTime = SimpleDateFormat("hh:mm a", Locale.getDefault())
 
-    var dateText by remember { mutableStateOf("mm/dd/yy") }
-    var startTimeText by remember { mutableStateOf("--:-- --") }
-    var endTimeText by remember { mutableStateOf("--:-- --") }
-    var address by remember { mutableStateOf("") }
-    var minPeople by remember { mutableStateOf("5") }
-    var maxPeople by remember { mutableStateOf("30") }
-    var foodOption by remember { mutableStateOf("None") }
-    var isPrivate by remember { mutableStateOf(false) }
-    var isLoading by remember { mutableStateOf(false) }
-    var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
+    var dateText by rememberSaveable { mutableStateOf("mm/dd/yy") }
+    var startTimeText by rememberSaveable { mutableStateOf("--:-- --") }
+    var endTimeText by rememberSaveable { mutableStateOf("--:-- --") }
+    var address by rememberSaveable { mutableStateOf("") }
+    var minPeople by rememberSaveable { mutableStateOf("5") }
+    var maxPeople by rememberSaveable { mutableStateOf("30") }
+    var foodOption by rememberSaveable { mutableStateOf("None") }
+    var isPrivate by rememberSaveable { mutableStateOf(false) }
+    var isLoading by rememberSaveable { mutableStateOf(false) }
+    var selectedImageUri by rememberSaveable { mutableStateOf<Uri?>(null) }
 
-    var timestamp by remember { mutableLongStateOf(System.currentTimeMillis()) }
-    var endTimestamp by remember { mutableLongStateOf(System.currentTimeMillis() + 3600000) }
+    var timestamp by rememberSaveable { mutableLongStateOf(System.currentTimeMillis()) }
+    var endTimestamp by rememberSaveable { mutableLongStateOf(System.currentTimeMillis() + 3600000) }
+    
+    var lat by rememberSaveable { mutableDoubleStateOf(0.0) }
+    var lng by rememberSaveable { mutableDoubleStateOf(0.0) }
+    val eventLocation = GeoPoint(lat, lng)
 
-    // Helper to reset fields
     fun resetFields() {
         eventName = ""
         description = ""
@@ -99,15 +97,14 @@ fun EventCreateScreen(
         foodOption = "None"
         isPrivate = false
         selectedImageUri = null
-        eventLocation = GeoPoint(0.0, 0.0)
+        lat = 0.0
+        lng = 0.0
     }
 
-    // Image Picker
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? -> selectedImageUri = uri }
 
-    // Dialogs
     val datePickerDialog = DatePickerDialog(context, { _, year, month, day ->
         calendar.set(year, month, day)
         endCalendar.set(year, month, day)
@@ -129,26 +126,6 @@ fun EventCreateScreen(
         endTimeText = sdfTime.format(endCalendar.time)
         endTimestamp = endCalendar.timeInMillis
     }, endCalendar.get(Calendar.HOUR_OF_DAY), endCalendar.get(Calendar.MINUTE), false)
-
-    // Places API Helpers
-    fun fetchAddressSuggestions(query: String) {
-        if (query.length < 2) { predictions = emptyList(); return }
-        val request = FindAutocompletePredictionsRequest.builder().setSessionToken(sessionToken).setQuery(query).build()
-        placesClient.findAutocompletePredictions(request).addOnSuccessListener { response ->
-            predictions = response.autocompletePredictions
-        }
-    }
-
-    fun fetchPlaceDetails(prediction: AutocompletePrediction) {
-        val placeFields = listOf(Place.Field.ID, Place.Field.NAME, Place.Field.LAT_LNG, Place.Field.ADDRESS)
-        val request = FetchPlaceRequest.newInstance(prediction.placeId, placeFields)
-        placesClient.fetchPlace(request).addOnSuccessListener { response ->
-            val place = response.place
-            address = place.address ?: place.name ?: ""
-            place.latLng?.let { eventLocation = GeoPoint(it.latitude, it.longitude) }
-            predictions = emptyList()
-        }
-    }
 
     Scaffold(
         topBar = {
@@ -239,7 +216,6 @@ fun EventCreateScreen(
                 }
             }
 
-            // Input Fields Aesthetic
             val fieldModifier = Modifier.fillMaxWidth()
             val fieldColors = OutlinedTextFieldDefaults.colors(
                 unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
@@ -337,32 +313,17 @@ fun EventCreateScreen(
                 }
             }
 
-            // Location with Suggestions
-            Column(modifier = fieldModifier) {
-                OutlinedTextField(
-                    value = address,
-                    onValueChange = { address = it; fetchAddressSuggestions(it) },
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("Search location...") },
-                    leadingIcon = { Icon(Icons.Default.LocationOn, null, tint = MaterialTheme.colorScheme.primary) },
-                    shape = RoundedCornerShape(16.dp),
-                    colors = fieldColors
-                )
-                if (predictions.isNotEmpty()) {
-                    Card(
-                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                    ) {
-                        predictions.forEach { prediction ->
-                            ListItem(
-                                headlineContent = { Text(prediction.getFullText(null).toString(), fontSize = 14.sp) },
-                                modifier = Modifier.clickable { fetchPlaceDetails(prediction) }
-                            )
-                        }
-                    }
-                }
-            }
+            // Chamada do componente de localização corrigida
+            LocationAutocompleteField(
+                address = address,
+                onAddressChange = { newValue: String -> address = newValue },
+                onLocationSelected = { selectedAddress: String, location: GeoPoint ->
+                    address = selectedAddress
+                    lat = location.latitude
+                    lng = location.longitude
+                },
+                modifier = fieldModifier
+            )
 
             // Participants Row
             Row(modifier = fieldModifier, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -466,3 +427,4 @@ fun EventCreateScreen(
         }
     }
 }
+

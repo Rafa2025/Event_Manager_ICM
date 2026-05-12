@@ -30,20 +30,25 @@ import pt.ua.EventManager.ui.navigation.Screen
 import pt.ua.EventManager.ui.screens.*
 import pt.ua.EventManager.ui.theme.EventManagerTheme
 import pt.ua.EventManager.ui.viewmodels.UserViewModel
+import pt.ua.EventManager.ui.viewmodels.EventViewModel
 import androidx.compose.runtime.toMutableStateList
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
+
+        // No onCreate da MainActivity
         if (!Places.isInitialized()) {
-            Places.initialize(applicationContext, "AIzaSyCGatbKuPNH7AD0asDTywWzGfZg0DA73w8")
+            Places.initialize(applicationContext, "AIzaSyAcoW495GZ3N0-DA8pC3zHpklqonByygqA")
         }
 
         enableEdgeToEdge()
         setContent {
             val userViewModel: UserViewModel = viewModel()
+            val eventViewModel: EventViewModel = viewModel()
+            
             val currentUser by userViewModel.currentUser.collectAsState()
+            val allEvents by eventViewModel.events.collectAsState()
 
             EventManagerTheme {
                 val navBarItems = remember {
@@ -74,6 +79,7 @@ class MainActivity : ComponentActivity() {
 
                 var currentScreenIndex by rememberSaveable { mutableIntStateOf(0) }
                 var myEventsInitialTab by rememberSaveable { mutableIntStateOf(0) }
+                var friendsInitialTab by rememberSaveable { mutableIntStateOf(0) }
                 
                 val pagerState = rememberPagerState(
                     initialPage = currentScreenIndex,
@@ -87,8 +93,11 @@ class MainActivity : ComponentActivity() {
                     restore = { it.toMutableStateList() }
                 )) { mutableStateListOf<Int>() }
 
-                var selectedEvent by remember { mutableStateOf<Event?>(null) }
-                var selectedMyEvent by remember { mutableStateOf<Event?>(null) }
+                var selectedEventId by rememberSaveable { mutableStateOf<String?>(null) }
+                var selectedMyEventId by rememberSaveable { mutableStateOf<String?>(null) }
+
+                val selectedEvent = allEvents.find { it.id == selectedEventId }
+                val selectedMyEvent = allEvents.find { it.id == selectedMyEventId }
 
                 val navigateTo = { nextIndex: Int ->
                     if (currentScreenIndex != nextIndex) {
@@ -187,14 +196,14 @@ class MainActivity : ComponentActivity() {
                             Screen.Home -> HomeScreen(
                                 onNotificationsClick = { navigateTo(allScreens.indexOf(Screen.Notifications)) },
                                 onEventClick = { event ->
-                                    selectedEvent = event
+                                    selectedEventId = event.id
                                     navigateTo(allScreens.indexOf(Screen.EventDetails))
                                 }
                             )
                             Screen.EventMap -> EventMapScreen(
                                 onNotificationsClick = { navigateTo(allScreens.indexOf(Screen.Notifications)) },
                                 onEventClick = { event ->
-                                    selectedEvent = event
+                                    selectedEventId = event.id
                                     navigateTo(allScreens.indexOf(Screen.EventDetails))
                                 }
                             )
@@ -234,11 +243,12 @@ class MainActivity : ComponentActivity() {
                                     MyEventsScreen(
                                         onNotificationsClick = { navigateTo(allScreens.indexOf(Screen.Notifications)) },
                                         onEventClick = { event, isHosting ->
-                                            selectedMyEvent = event
+                                            selectedMyEventId = event.id
                                             val route = if (isHosting) Screen.HostingDetails else Screen.AttendingDetails
                                             navigateTo(allScreens.indexOf(route))
                                         },
-                                        initialTab = myEventsInitialTab
+                                        initialTab = myEventsInitialTab,
+                                        onTabChange = { myEventsInitialTab = it }
                                     )
                                 }
                             }
@@ -261,7 +271,7 @@ class MainActivity : ComponentActivity() {
                                 onBack = { navigateBack() },
                                 onNavigateToFriends = { navigateTo(allScreens.indexOf(Screen.Friends)) },
                                 onNavigateToEventDetails = { event ->
-                                    selectedEvent = event
+                                    selectedEventId = event.id
                                     navigateTo(allScreens.indexOf(Screen.EventDetails))
                                 }
                             )
@@ -323,13 +333,14 @@ class MainActivity : ComponentActivity() {
                             Screen.Friends -> FriendsScreen(
                                 onBack = { navigateBack() },
                                 onSearchClick = { navigateTo(allScreens.indexOf(Screen.UserSearch)) },
-                                userViewModel = userViewModel
+                                userViewModel = userViewModel,
+                                initialTab = friendsInitialTab,
+                                onTabChange = { friendsInitialTab = it }
                             )
                             Screen.EventHistory -> EventHistoryScreen(
                                 onBack = { navigateBack() },
                                 onEventClick = { event ->
-                                    selectedMyEvent = event
-                                    // Navigate to details depending on role, but for history we can use a generic one or just the existing ones
+                                    selectedMyEventId = event.id
                                     val isHosting = event.organizerUid == currentUser?.uid
                                     val route = if (isHosting) Screen.HostingDetails else Screen.AttendingDetails
                                     navigateTo(allScreens.indexOf(route))

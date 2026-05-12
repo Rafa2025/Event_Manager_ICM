@@ -16,6 +16,7 @@ import androidx.compose.material.icons.outlined.Groups
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -59,7 +60,7 @@ fun EventDetailsScreen(
     val isParticipant = event.participantsUids.contains(currentUserId)
     val isOrganizer = event.organizerUid == currentUserId
 
-    var isLoading by remember { mutableStateOf(false) }
+    var isLoading by rememberSaveable { mutableStateOf(false) }
 
     val sdf = SimpleDateFormat("MMM dd, yyyy • h:mm a", Locale.getDefault())
     val dateString = sdf.format(Date(event.timestamp))

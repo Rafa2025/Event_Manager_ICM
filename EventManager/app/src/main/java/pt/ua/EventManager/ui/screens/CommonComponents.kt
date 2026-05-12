@@ -17,6 +17,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.PopupProperties
+import com.google.android.gms.common.api.ApiException
 import com.google.android.libraries.places.api.Places
 import com.google.android.libraries.places.api.model.AutocompletePrediction
 import com.google.android.libraries.places.api.model.AutocompleteSessionToken
@@ -24,6 +26,7 @@ import com.google.android.libraries.places.api.model.Place
 import com.google.android.libraries.places.api.net.FetchPlaceRequest
 import com.google.android.libraries.places.api.net.FindAutocompletePredictionsRequest
 import com.google.firebase.firestore.GeoPoint
+import kotlinx.coroutines.delay
 
 @Composable
 fun CommonInfoRow(icon: ImageVector, text: String, color: Color = Color.Gray) {
@@ -62,37 +65,70 @@ fun LocationAutocompleteField(
     val context = LocalContext.current
     val placesClient = remember { Places.createClient(context) }
     val sessionToken = remember { AutocompleteSessionToken.newInstance() }
-    var predictions by remember { mutableStateOf<List<AutocompletePrediction>>(emptyList()) }
-    var shouldFetchSuggestions by remember { mutableStateOf(true) }
+    
+    var predictions by remember { mutableStateOf(listOf<AutocompletePrediction>()) }
+    var expanded by remember { mutableStateOf(false) }
+    var errorMsg by remember { mutableStateOf<String?>(null) }
+
+    // Implementação de Debounce e Busca via Side-Effect (Architect Pattern)
+    LaunchedEffect(address) {
+        if (address.length >= 3) {
+            delay(500) // Debounce de 500ms
+            
+            val request = FindAutocompletePredictionsRequest.builder()
+                .setSessionToken(sessionToken)
+                .setQuery(address)
+                .setCountries("PT") // Otimização regional (Portugal)
+                .build()
+
+            placesClient.findAutocompletePredictions(request)
+                .addOnSuccessListener { response ->
+                    predictions = response.autocompletePredictions
+                    expanded = predictions.isNotEmpty()
+                    errorMsg = null
+                }
+                .addOnFailureListener { exception ->
+                    if (exception is ApiException) {
+                        val statusCode = exception.statusCode
+                        Log.e("Places", "Status Code: $statusCode - ${exception.statusMessage}")
+                        
+                        // Mapeamento detalhado para facilitar a depuração no telemóvel
+                        errorMsg = when(statusCode) {
+                            9011 -> "Erro 9011: SHA-1 ou Package Name não autorizado."
+                            9010 -> "Erro 9010: API Key inválida ou restrita."
+                            else -> "Erro Google ($statusCode): ${exception.statusMessage}"
+                        }
+                    } else {
+                        Log.e("Places", "Prediction error: ${exception.message}")
+                        errorMsg = "Erro: ${exception.message}"
+                    }
+                    expanded = false
+                    predictions = emptyList()
+                }
+        } else {
+            predictions = emptyList()
+            expanded = false
+            if (address.isEmpty()) errorMsg = null
+        }
+    }
 
     Column(modifier = modifier) {
         OutlinedTextField(
             value = address,
-            onValueChange = {
-                onAddressChange(it)
-                if (shouldFetchSuggestions) {
-                    if (it.length >= 2) {
-                        val request = FindAutocompletePredictionsRequest.builder()
-                            .setSessionToken(sessionToken)
-                            .setQuery(it)
-                            .build()
-                        placesClient.findAutocompletePredictions(request)
-                            .addOnSuccessListener { response ->
-                                predictions = response.autocompletePredictions
-                            }
-                            .addOnFailureListener { exception ->
-                                Log.e("Places", "Prediction error", exception)
-                            }
-                    } else {
-                        predictions = emptyList()
-                    }
-                } else {
-                    shouldFetchSuggestions = true
-                }
-            },
+            onValueChange = { onAddressChange(it) },
             modifier = Modifier.fillMaxWidth(),
             placeholder = { Text("Search location...") },
             leadingIcon = { Icon(Icons.Default.LocationOn, null, tint = MaterialTheme.colorScheme.primary) },
+            isError = errorMsg != null,
+            supportingText = {
+                if (errorMsg != null) {
+                    Text(
+                        text = errorMsg!!,
+                        color = MaterialTheme.colorScheme.error,
+                        fontSize = 12.sp
+                    )
+                }
+            },
             shape = RoundedCornerShape(16.dp),
             colors = OutlinedTextFieldDefaults.colors(
                 unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
@@ -102,41 +138,43 @@ fun LocationAutocompleteField(
             )
         )
 
-        if (predictions.isNotEmpty()) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 4.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-            ) {
-                predictions.forEach { prediction ->
-                    ListItem(
-                        headlineContent = {
-                            Text(
-                                prediction.getFullText(null).toString(),
-                                fontSize = 14.sp
-                            )
-                        },
-                        modifier = Modifier.clickable {
-                            val placeFields = listOf(Place.Field.ID, Place.Field.NAME, Place.Field.LAT_LNG, Place.Field.ADDRESS)
-                            val request = FetchPlaceRequest.newInstance(prediction.placeId, placeFields)
-                            placesClient.fetchPlace(request).addOnSuccessListener { response ->
-                                val place = response.place
-                                val selectedAddress = place.address ?: place.name ?: ""
-                                shouldFetchSuggestions = false
-                                onLocationSelected(
-                                    selectedAddress,
-                                    GeoPoint(place.latLng?.latitude ?: 0.0, place.latLng?.longitude ?: 0.0)
-                                )
-                                predictions = emptyList()
-                            }.addOnFailureListener { exception ->
-                                Log.e("Places", "Fetch place error", exception)
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.fillMaxWidth(0.9f),
+            properties = PopupProperties(focusable = false)
+        ) {
+            predictions.forEach { prediction ->
+                DropdownMenuItem(
+                    text = { 
+                        Text(
+                            text = prediction.getFullText(null).toString(),
+                            fontSize = 14.sp,
+                            maxLines = 2
+                        ) 
+                    },
+                    onClick = {
+                        val placeFields = listOf(Place.Field.ID, Place.Field.NAME, Place.Field.LAT_LNG, Place.Field.ADDRESS)
+                        val fetchPlaceRequest = FetchPlaceRequest.newInstance(prediction.placeId, placeFields)
+
+                        placesClient.fetchPlace(fetchPlaceRequest)
+                            .addOnSuccessListener { fetchResponse ->
+                                val place = fetchResponse.place
+                                val latLng = place.latLng
+                                if (latLng != null) {
+                                    onLocationSelected(
+                                        place.address ?: place.name ?: prediction.getFullText(null).toString(),
+                                        GeoPoint(latLng.latitude, latLng.longitude)
+                                    )
+                                }
+                                expanded = false
                             }
-                        }
-                    )
-                }
+                            .addOnFailureListener { e ->
+                                Log.e("Places", "Fetch Place Error: ${e.message}")
+                                expanded = false
+                            }
+                    }
+                )
             }
         }
     }
