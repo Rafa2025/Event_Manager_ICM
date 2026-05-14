@@ -46,6 +46,8 @@ fun AttendingDetailsScreen(
     val currentTime = System.currentTimeMillis()
     val isHappening = currentTime in event.timestamp..event.endTimestamp
     val isUpcoming = currentTime < event.timestamp
+    
+    var showLeaveConfirm by remember { mutableStateOf(false) }
 
     val sdf = SimpleDateFormat("MMM dd, yyyy • h:mm a", Locale.getDefault())
     val dateString = sdf.format(Date(event.timestamp))
@@ -247,7 +249,7 @@ fun AttendingDetailsScreen(
 
                 // Actions
                 Button(
-                    onClick = { /* Leave Event logic */ },
+                    onClick = { showLeaveConfirm = true },
                     modifier = Modifier.fillMaxWidth().height(56.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFFEF4444).copy(alpha = 0.1f),
@@ -262,6 +264,32 @@ fun AttendingDetailsScreen(
                 }
             }
         }
+    }
+
+    if (showLeaveConfirm) {
+        AlertDialog(
+            onDismissRequest = { showLeaveConfirm = false },
+            title = { Text("Leave Event") },
+            text = { Text("Are you sure you want to leave this event?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.leaveEvent(event.id) { success, _ ->
+                            if (success) onBack()
+                        }
+                        showLeaveConfirm = false
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = Color.Red)
+                ) {
+                    Text("Leave")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLeaveConfirm = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
 

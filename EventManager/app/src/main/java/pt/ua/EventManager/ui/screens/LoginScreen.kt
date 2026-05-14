@@ -10,6 +10,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,22 +21,33 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import pt.ua.EventManager.ui.viewmodels.UserViewModel
 
-enum class AuthMode { SELECTION, LOGIN, SIGNUP }
+enum class AuthMode { SELECTION, LOGIN, SIGNUP, VERIFY }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(userViewModel: UserViewModel = viewModel(), onLoginSuccess: () -> Unit) {
     var authMode by remember { mutableStateOf(AuthMode.SELECTION) }
+    val isVerified by userViewModel.isEmailVerified.collectAsState()
+    val currentUser by userViewModel.currentUser.collectAsState()
+
+    // If logged in but not verified, show verification screen
+    LaunchedEffect(currentUser, isVerified) {
+        if (currentUser != null && !isVerified) {
+            authMode = AuthMode.VERIFY
+        } else if (currentUser != null && isVerified) {
+            onLoginSuccess()
+        }
+    }
 
     Scaffold(
         topBar = {
             if (authMode != AuthMode.SELECTION) {
-                // Modern Header matching Notifications/Details screens
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -48,7 +61,14 @@ fun LoginScreen(userViewModel: UserViewModel = viewModel(), onLoginSuccess: () -
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         IconButton(
-                            onClick = { authMode = AuthMode.SELECTION },
+                            onClick = { 
+                                if (authMode == AuthMode.VERIFY) {
+                                    userViewModel.logout()
+                                    authMode = AuthMode.SELECTION
+                                } else {
+                                    authMode = AuthMode.SELECTION 
+                                }
+                            },
                             modifier = Modifier
                                 .size(44.dp)
                                 .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
@@ -70,7 +90,12 @@ fun LoginScreen(userViewModel: UserViewModel = viewModel(), onLoginSuccess: () -
                                 letterSpacing = 1.5.sp
                             )
                             Text(
-                                text = if (authMode == AuthMode.LOGIN) "Login" else "Sign Up",
+                                text = when(authMode) {
+                                    AuthMode.LOGIN -> "Login"
+                                    AuthMode.SIGNUP -> "Sign Up"
+                                    AuthMode.VERIFY -> "Verify Email"
+                                    else -> ""
+                                },
                                 fontSize = 32.sp,
                                 fontWeight = FontWeight.ExtraBold,
                                 color = MaterialTheme.colorScheme.onBackground,
@@ -92,8 +117,96 @@ fun LoginScreen(userViewModel: UserViewModel = viewModel(), onLoginSuccess: () -
             when (authMode) {
                 AuthMode.SELECTION -> AuthSelectionContent(onModeSelected = { authMode = it })
                 AuthMode.LOGIN -> LoginForm(userViewModel, onLoginSuccess)
-                AuthMode.SIGNUP -> SignupForm(userViewModel, onLoginSuccess)
+                AuthMode.SIGNUP -> SignupForm(userViewModel, { authMode = AuthMode.VERIFY })
+                AuthMode.VERIFY -> VerifyEmailContent(userViewModel)
             }
+        }
+    }
+}
+
+@Composable
+fun VerifyEmailContent(userViewModel: UserViewModel) {
+    val context = LocalContext.current
+    var isReloading by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier.fillMaxSize().padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .size(100.dp)
+                .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Email,
+                contentDescription = null,
+                modifier = Modifier.size(48.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+        }
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        Text(
+            text = "Check your inbox",
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        
+        Spacer(modifier = Modifier.height(12.dp))
+        
+        Text(
+            text = "We've sent a verification link to your email address. Please click it to verify your account.",
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            lineHeight = 22.sp
+        )
+        
+        Spacer(modifier = Modifier.height(40.dp))
+        
+        Button(
+            onClick = {
+                isReloading = true
+                userViewModel.reloadUser {
+                    isReloading = false
+                    if (userViewModel.isEmailVerified.value) {
+                        Toast.makeText(context, "Email verified successfully!", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(context, "Still not verified. Please check your email.", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            },
+            modifier = Modifier.fillMaxWidth().height(56.dp),
+            shape = RoundedCornerShape(16.dp),
+            enabled = !isReloading
+        ) {
+            if (isReloading) {
+                CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White)
+            } else {
+                Icon(Icons.Default.Refresh, null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("I've verified my email", fontWeight = FontWeight.Bold)
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        TextButton(
+            onClick = {
+                userViewModel.sendVerificationEmail { success, error ->
+                    if (success) {
+                        Toast.makeText(context, "Verification email resent!", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(context, error ?: "Failed to resend", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        ) {
+            Text("Resend verification email", fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -204,8 +317,8 @@ fun LoginForm(userViewModel: UserViewModel, onLoginSuccess: () -> Unit) {
                     isLoading = true
                     userViewModel.signIn(email, password) { success, error ->
                         isLoading = false
-                        if (success) onLoginSuccess()
-                        else Toast.makeText(context, error ?: "Login failed", Toast.LENGTH_LONG).show()
+                        // LaunchedEffect will handle navigation if verified
+                        if (!success) Toast.makeText(context, error ?: "Login failed", Toast.LENGTH_LONG).show()
                     }
                 },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
@@ -218,7 +331,7 @@ fun LoginForm(userViewModel: UserViewModel, onLoginSuccess: () -> Unit) {
 }
 
 @Composable
-fun SignupForm(userViewModel: UserViewModel, onLoginSuccess: () -> Unit) {
+fun SignupForm(userViewModel: UserViewModel, onSignupStarted: () -> Unit) {
     var name by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -279,7 +392,10 @@ fun SignupForm(userViewModel: UserViewModel, onLoginSuccess: () -> Unit) {
                     isLoading = true
                     userViewModel.signUp(name, email, password) { success, error ->
                         isLoading = false
-                        if (success) onLoginSuccess()
+                        if (success) {
+                            Toast.makeText(context, "Account created! Please verify your email.", Toast.LENGTH_LONG).show()
+                            onSignupStarted()
+                        }
                         else Toast.makeText(context, error ?: "Signup failed", Toast.LENGTH_LONG).show()
                     }
                 },

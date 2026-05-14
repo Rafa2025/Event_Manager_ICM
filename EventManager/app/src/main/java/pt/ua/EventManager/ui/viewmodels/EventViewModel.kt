@@ -234,6 +234,26 @@ class EventViewModel : ViewModel() {
             }
     }
 
+    fun deleteEvent(eventId: String, onComplete: (Boolean, String?) -> Unit) {
+        Log.d("EventViewModel", "Deleting event: $eventId")
+        if (eventId.isEmpty()) {
+            onComplete(false, "Invalid event ID")
+            return
+        }
+
+        db.collection("events").document(eventId).delete()
+            .addOnCompleteListener { task ->
+                if (task.isSuccessful) {
+                    Log.d("EventViewModel", "Event deleted successfully: $eventId")
+                    onComplete(true, null)
+                } else {
+                    val error = task.exception?.localizedMessage ?: "Error deleting event"
+                    Log.e("EventViewModel", "Failed to delete event $eventId: $error")
+                    onComplete(false, error)
+                }
+            }
+    }
+
     private fun uploadImage(uri: Uri, callback: (String?) -> Unit) {
         val storageRef = storage.reference.child("event_images/${UUID.randomUUID()}")
         storageRef.putFile(uri)
@@ -269,6 +289,7 @@ class EventViewModel : ViewModel() {
     }
 
     fun leaveEvent(eventId: String, onComplete: (Boolean, String?) -> Unit) {
+        Log.d("EventViewModel", "Leaving event: $eventId")
         val uid = currentUserUid
         if (uid == null) {
             onComplete(false, "User not logged in")
@@ -279,9 +300,12 @@ class EventViewModel : ViewModel() {
             .update("participantsUids", FieldValue.arrayRemove(uid))
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
+                    Log.d("EventViewModel", "Successfully left event: $eventId")
                     onComplete(true, null)
                 } else {
-                    onComplete(false, task.exception?.localizedMessage ?: "Error leaving event")
+                    val error = task.exception?.localizedMessage ?: "Error leaving event"
+                    Log.e("EventViewModel", "Failed to leave event $eventId: $error")
+                    onComplete(false, error)
                 }
             }
     }

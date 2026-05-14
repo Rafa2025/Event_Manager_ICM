@@ -36,6 +36,7 @@ fun ProfileScreen(
 ) {
     val user by userViewModel.currentUser.collectAsState()
     val events by eventViewModel.events.collectAsState()
+    val isVerified by userViewModel.isEmailVerified.collectAsState()
 
     // Calculate dynamic stats
     val hostingEvents = eventViewModel.getHostingEvents(events)
@@ -130,12 +131,24 @@ fun ProfileScreen(
                         }
                         Spacer(modifier = Modifier.width(16.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                user?.name ?: "Guest User",
-                                fontSize = 22.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    user?.name ?: "Guest User",
+                                    fontSize = 22.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.weight(1f, fill = false)
+                                )
+                                if (isVerified) {
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Icon(
+                                        imageVector = Icons.Default.Verified,
+                                        contentDescription = "Verified",
+                                        tint = Color(0xFF0EA5E9),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
                             Text(
                                 user?.email ?: "anonymous@test.com",
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,

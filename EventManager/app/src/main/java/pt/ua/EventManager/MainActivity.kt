@@ -45,6 +45,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             val userViewModel: UserViewModel = viewModel()
             val currentUser by userViewModel.currentUser.collectAsState()
+            val isVerified by userViewModel.isEmailVerified.collectAsState()
 
             EventManagerTheme {
                 val navBarItems = listOf(
@@ -199,52 +200,82 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
                             Screen.EventCreate -> {
-                                if (currentUser == null) {
-                                    LoginRequiredScreen(
-                                        title = "Create Event",
-                                        message = "You need to be logged in to create an event.",
-                                        onLoginClick = {
-                                            navigationStack.clear()
-                                            val profileIndex = navBarItems.indexOf(Screen.Profile)
-                                            currentScreenIndex = profileIndex
-                                            scope.launch {
-                                                pagerState.scrollToPage(profileIndex)
+                                when {
+                                    currentUser == null -> {
+                                        LoginRequiredScreen(
+                                            title = "Create Event",
+                                            message = "You need to be logged in to create an event.",
+                                            onLoginClick = {
+                                                navigationStack.clear()
+                                                val profileIndex = navBarItems.indexOf(Screen.Profile)
+                                                currentScreenIndex = profileIndex
+                                                scope.launch { pagerState.scrollToPage(profileIndex) }
                                             }
-                                        }
-                                    )
-                                } else {
-                                    EventCreateScreen(onNotificationsClick = { navigateTo(allScreens.indexOf(Screen.Notifications)) })
+                                        )
+                                    }
+                                    !isVerified -> {
+                                        LoginRequiredScreen(
+                                            title = "Verify Email",
+                                            message = "Please verify your email to create events.",
+                                            buttonText = "Go to Verification",
+                                            onLoginClick = {
+                                                val profileIndex = navBarItems.indexOf(Screen.Profile)
+                                                currentScreenIndex = profileIndex
+                                                scope.launch { pagerState.scrollToPage(profileIndex) }
+                                            }
+                                        )
+                                    }
+                                    else -> {
+                                        EventCreateScreen(onNotificationsClick = { navigateTo(allScreens.indexOf(Screen.Notifications)) })
+                                    }
                                 }
                             }
                             Screen.MyEvents -> {
-                                if (currentUser == null) {
-                                    LoginRequiredScreen(
-                                        title = "My Events",
-                                        message = "Log in to see your hosted and joined events.",
-                                        onLoginClick = {
-                                            navigationStack.clear()
-                                            val profileIndex = navBarItems.indexOf(Screen.Profile)
-                                            currentScreenIndex = profileIndex
-                                            scope.launch {
-                                                pagerState.scrollToPage(profileIndex)
+                                when {
+                                    currentUser == null -> {
+                                        LoginRequiredScreen(
+                                            title = "My Events",
+                                            message = "Log in to see your hosted and joined events.",
+                                            onLoginClick = {
+                                                navigationStack.clear()
+                                                val profileIndex = navBarItems.indexOf(Screen.Profile)
+                                                currentScreenIndex = profileIndex
+                                                scope.launch { pagerState.scrollToPage(profileIndex) }
                                             }
-                                        }
-                                    )
-                                } else {
-                                    MyEventsScreen(
-                                        onNotificationsClick = { navigateTo(allScreens.indexOf(Screen.Notifications)) },
-                                        onEventClick = { event, isHosting ->
-                                            selectedMyEvent = event
-                                            val route = if (isHosting) Screen.HostingDetails else Screen.AttendingDetails
-                                            navigateTo(allScreens.indexOf(route))
-                                        }
-                                    )
+                                        )
+                                    }
+                                    !isVerified -> {
+                                        LoginRequiredScreen(
+                                            title = "Verify Email",
+                                            message = "Please verify your email to manage your events.",
+                                            buttonText = "Go to Verification",
+                                            onLoginClick = {
+                                                val profileIndex = navBarItems.indexOf(Screen.Profile)
+                                                currentScreenIndex = profileIndex
+                                                scope.launch { pagerState.scrollToPage(profileIndex) }
+                                            }
+                                        )
+                                    }
+                                    else -> {
+                                        MyEventsScreen(
+                                            onNotificationsClick = { navigateTo(allScreens.indexOf(Screen.Notifications)) },
+                                            onEventClick = { event, isHosting ->
+                                                selectedMyEvent = event
+                                                val route = if (isHosting) Screen.HostingDetails else Screen.AttendingDetails
+                                                navigateTo(allScreens.indexOf(route))
+                                            }
+                                        )
+                                    }
                                 }
                             }
                             Screen.Profile -> {
                                 if (currentUser == null) {
                                     LoginScreen(userViewModel = userViewModel) {
-                                        // Stay on page
+                                        // Handled by LaunchedEffect in LoginScreen
+                                    }
+                                } else if (!isVerified) {
+                                    LoginScreen(userViewModel = userViewModel) {
+                                        // Still show verification if not verified
                                     }
                                 } else {
                                     ProfileScreen(
@@ -338,7 +369,12 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun LoginRequiredScreen(title: String, message: String, onLoginClick: () -> Unit) {
+fun LoginRequiredScreen(
+    title: String, 
+    message: String, 
+    buttonText: String = "Go to Login",
+    onLoginClick: () -> Unit
+) {
     Column(
         modifier = Modifier.fillMaxSize().padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -353,7 +389,7 @@ fun LoginRequiredScreen(title: String, message: String, onLoginClick: () -> Unit
             modifier = Modifier.fillMaxWidth().height(56.dp),
             shape = RoundedCornerShape(28.dp)
         ) {
-            Text("Go to Login", fontWeight = FontWeight.Bold)
+            Text(buttonText, fontWeight = FontWeight.Bold)
         }
     }
 }

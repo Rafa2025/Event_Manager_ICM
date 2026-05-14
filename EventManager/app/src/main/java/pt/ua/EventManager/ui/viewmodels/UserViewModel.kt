@@ -1,5 +1,6 @@
 package pt.ua.EventManager.ui.viewmodels
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
@@ -16,6 +17,9 @@ class UserViewModel : ViewModel() {
     private val _currentUser = MutableStateFlow<User?>(null)
     val currentUser: StateFlow<User?> = _currentUser
 
+    private val _isEmailVerified = MutableStateFlow(false)
+    val isEmailVerified: StateFlow<Boolean> = _isEmailVerified
+
     val currentUserUid: String?
         get() = auth.currentUser?.uid
 
@@ -23,9 +27,11 @@ class UserViewModel : ViewModel() {
         auth.addAuthStateListener { firebaseAuth ->
             val firebaseUser = firebaseAuth.currentUser
             if (firebaseUser != null) {
+                _isEmailVerified.value = firebaseUser.isEmailVerified
                 fetchUserData(firebaseUser.uid)
             } else {
                 _currentUser.value = null
+                _isEmailVerified.value = false
             }
         }
     }
@@ -34,6 +40,27 @@ class UserViewModel : ViewModel() {
         db.collection("users").document(uid).addSnapshotListener { snapshot, _ ->
             if (snapshot != null && snapshot.exists()) {
                 _currentUser.value = snapshot.toObject(User::class.java)
+            }
+        }
+    }
+
+    fun reloadUser(onComplete: (Boolean) -> Unit = {}) {
+        auth.currentUser?.reload()?.addOnCompleteListener { task ->
+            if (task.isSuccessful) {
+                _isEmailVerified.value = auth.currentUser?.isEmailVerified == true
+                onComplete(true)
+            } else {
+                onComplete(false)
+            }
+        }
+    }
+
+    fun sendVerificationEmail(onComplete: (Boolean, String?) -> Unit) {
+        auth.currentUser?.sendEmailVerification()?.addOnCompleteListener { task ->
+            if (task.isSuccessful) {
+                onComplete(true, null)
+            } else {
+                onComplete(false, task.exception?.message)
             }
         }
     }
@@ -132,9 +159,11 @@ class UserViewModel : ViewModel() {
     fun signUp(name: String, email: String, password: String, onResult: (Boolean, String?) -> Unit) {
         auth.createUserWithEmailAndPassword(email, password).addOnCompleteListener { task ->
             if (task.isSuccessful) {
-                val uid = task.result?.user?.uid ?: ""
+                val user = task.result?.user
+                val uid = user?.uid ?: ""
                 val newUser = User(uid = uid, name = name, email = email)
                 db.collection("users").document(uid).set(newUser).addOnCompleteListener {
+                    user?.sendEmailVerification()
                     onResult(true, null)
                 }
             } else {
@@ -146,6 +175,7 @@ class UserViewModel : ViewModel() {
     fun signIn(email: String, password: String, onResult: (Boolean, String?) -> Unit) {
         auth.signInWithEmailAndPassword(email, password).addOnCompleteListener { task ->
             if (task.isSuccessful) {
+                _isEmailVerified.value = auth.currentUser?.isEmailVerified == true
                 onResult(true, null)
             } else {
                 onResult(false, task.exception?.message)

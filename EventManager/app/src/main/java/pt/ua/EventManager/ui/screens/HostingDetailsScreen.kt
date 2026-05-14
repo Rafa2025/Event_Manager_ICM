@@ -53,6 +53,7 @@ fun HostingDetailsScreen(
     
     val currentUser by userViewModel.currentUser.collectAsState()
     var showInviteDialog by remember { mutableStateOf(false) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
 
     val sdf = SimpleDateFormat("MMM dd, yyyy • h:mm a", Locale.getDefault())
     val dateString = sdf.format(Date(event.timestamp))
@@ -260,7 +261,7 @@ fun HostingDetailsScreen(
                 }
 
                 Button(
-                    onClick = { /* Cancel Event logic */ },
+                    onClick = { showDeleteConfirm = true },
                     modifier = Modifier.fillMaxWidth().height(56.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFFEF4444).copy(alpha = 0.1f),
@@ -275,6 +276,32 @@ fun HostingDetailsScreen(
                 }
             }
         }
+    }
+
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text("Cancel Event") },
+            text = { Text("Are you sure you want to cancel this event? This action cannot be undone.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        eventViewModel.deleteEvent(event.id) { success, _ ->
+                            if (success) onBack()
+                        }
+                        showDeleteConfirm = false
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = Color.Red)
+                ) {
+                    Text("Cancel Event")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) {
+                    Text("Go Back")
+                }
+            }
+        )
     }
 
     if (showInviteDialog) {
