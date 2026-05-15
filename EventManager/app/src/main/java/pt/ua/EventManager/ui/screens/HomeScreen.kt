@@ -42,6 +42,9 @@ fun HomeScreen(
     viewModel: EventViewModel = viewModel()
 ) {
     val allEvents by viewModel.events.collectAsState()
+    val notifications by viewModel.notifications.collectAsState()
+    val hasUnread = notifications.any { !it.isRead }
+    
     val currentTime = System.currentTimeMillis()
     // Show only active public events
     val publicEvents = allEvents.filter { it.isPublic && it.endTimestamp > currentTime }
@@ -78,22 +81,34 @@ fun HomeScreen(
                         )
                     }
 
-                    // Notification bell with subtle background
-                    IconButton(
-                        onClick = onNotificationsClick,
-                        modifier = Modifier
-                            .size(44.dp)
-                            .background(
-                                color = MaterialTheme.colorScheme.surfaceVariant,
-                                shape = CircleShape
+                    // Notification bell with blue dot indicator
+                    Box {
+                        IconButton(
+                            onClick = onNotificationsClick,
+                            modifier = Modifier
+                                .size(44.dp)
+                                .background(
+                                    color = MaterialTheme.colorScheme.surfaceVariant,
+                                    shape = CircleShape
+                                )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.NotificationsNone,
+                                contentDescription = "Notifications",
+                                tint = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(22.dp)
                             )
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.NotificationsNone,
-                            contentDescription = "Notifications",
-                            tint = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.size(22.dp)
-                        )
+                        }
+                        
+                        if (hasUnread) {
+                            Box(
+                                modifier = Modifier
+                                    .size(10.dp)
+                                    .align(Alignment.TopEnd)
+                                    .offset(x = (-2).dp, y = 2.dp)
+                                    .background(Color(0xFF3B82F6), CircleShape)
+                            )
+                        }
                     }
                 }
 

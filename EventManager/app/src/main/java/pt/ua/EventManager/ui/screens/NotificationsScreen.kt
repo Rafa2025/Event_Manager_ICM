@@ -1,6 +1,5 @@
 package pt.ua.EventManager.ui.screens
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -10,17 +9,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteSweep
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -179,7 +173,6 @@ fun NotificationsScreen(
                     NotificationItem(
                         notification = notification,
                         eventViewModel = eventViewModel,
-                        userViewModel = userViewModel,
                         onNavigateToFriends = onNavigateToFriends,
                         onNavigateToEventDetails = onNavigateToEventDetails
                     )
@@ -193,25 +186,19 @@ fun NotificationsScreen(
 fun NotificationItem(
     notification: Notification,
     eventViewModel: EventViewModel,
-    userViewModel: UserViewModel,
     onNavigateToFriends: () -> Unit,
     onNavigateToEventDetails: (Event) -> Unit
 ) {
     val sdf = SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault())
     val timeString = sdf.format(Date(notification.timestamp))
-    
+
     val allEvents by eventViewModel.events.collectAsState()
     val event = allEvents.find { it.id == notification.eventId }
-    val isAlreadyJoined = event?.participantsUids?.contains(eventViewModel.currentUserUid) == true
-    
-    val currentUser by userViewModel.currentUser.collectAsState()
-    val isFriend = currentUser?.friends?.contains(notification.senderUid) == true
-    val isPending = currentUser?.friendRequestsReceived?.contains(notification.senderUid) == true
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { 
+            .clickable {
                 if (!notification.isRead) {
                     eventViewModel.markNotificationAsRead(notification.id)
                 }
@@ -221,16 +208,8 @@ fun NotificationItem(
                 }
             },
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (notification.isRead)
-                MaterialTheme.colorScheme.surface
-            else
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (notification.isRead) 0.dp else 4.dp),
-        border = if (!notification.isRead) 
-            BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)) 
-        else null
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
             modifier = Modifier
@@ -238,55 +217,34 @@ fun NotificationItem(
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Read/Unread dot
+            // Blue dot — only visible when unread, disappears on click
             Box(
                 modifier = Modifier
                     .size(10.dp)
                     .background(
-                        color = if (notification.isRead) Color.Transparent else MaterialTheme.colorScheme.primary,
+                        color = if (!notification.isRead)
+                            MaterialTheme.colorScheme.primary
+                        else
+                            androidx.compose.ui.graphics.Color.Transparent,
                         shape = CircleShape
                     )
             )
 
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(14.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = when (notification.type) {
-                            "event_invite" -> "Event Invitation"
-                            "friend_request" -> "Friend Request"
-                            else -> "Notification"
-                        },
-                        fontWeight = if (notification.isRead) FontWeight.Bold else FontWeight.ExtraBold,
-                        fontSize = 16.sp,
-                        color = if (notification.isRead) 
-                            MaterialTheme.colorScheme.onSurface 
-                        else 
-                            MaterialTheme.colorScheme.primary
-                    )
-                    
-                    if (!notification.isRead) {
-                        Surface(
-                            color = MaterialTheme.colorScheme.primary,
-                            shape = RoundedCornerShape(4.dp)
-                        ) {
-                            Text(
-                                "NEW",
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                fontSize = 8.sp,
-                                fontWeight = FontWeight.Black,
-                                color = Color.White
-                            )
-                        }
-                    }
-                }
-                
-                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = when (notification.type) {
+                        "event_invite" -> "Event Invitation"
+                        "friend_request" -> "Friend Request"
+                        else -> "Notification"
+                    },
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = when (notification.type) {
                         "event_invite" -> "${notification.senderName} invited you to '${notification.eventTitle}'"
@@ -294,74 +252,17 @@ fun NotificationItem(
                         else -> "You have a new update"
                     },
                     fontSize = 14.sp,
-                    fontWeight = if (notification.isRead) FontWeight.Normal else FontWeight.Medium,
+                    fontWeight = FontWeight.Normal,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     lineHeight = 20.sp
                 )
-                
-                if (notification.type == "event_invite" && event != null && !isAlreadyJoined) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Button(
-                        onClick = {
-                            eventViewModel.joinEvent(event) { _, _ -> }
-                            eventViewModel.markNotificationAsRead(notification.id)
-                        },
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.height(36.dp),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp)
-                    ) {
-                        Icon(Icons.Default.Check, null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Join Event", fontSize = 12.sp)
-                    }
-                } else if (notification.type == "friend_request" && isPending) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(
-                            onClick = {
-                                userViewModel.acceptFriendRequest(notification.senderUid)
-                                eventViewModel.markNotificationAsRead(notification.id)
-                            },
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.height(36.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
-                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp)
-                        ) {
-                            Icon(Icons.Default.Check, null, modifier = Modifier.size(16.dp), tint = Color.White)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Accept", fontSize = 12.sp, color = Color.White)
-                        }
-                        OutlinedButton(
-                            onClick = {
-                                userViewModel.declineFriendRequest(notification.senderUid)
-                                eventViewModel.markNotificationAsRead(notification.id)
-                            },
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.height(36.dp),
-                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp)
-                        ) {
-                            Icon(Icons.Default.Close, null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Decline", fontSize = 12.sp)
-                        }
-                    }
-                } else if (notification.type == "event_invite" && isAlreadyJoined) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("Joined", color = Color(0xFF16A34A), fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                } else if (notification.type == "friend_request" && isFriend) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("Friends", color = Color(0xFF16A34A), fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                }
-                
+
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = timeString.uppercase(),
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
-                    color = if (notification.isRead) 
-                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f) 
-                    else 
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                     letterSpacing = 1.sp
                 )
             }

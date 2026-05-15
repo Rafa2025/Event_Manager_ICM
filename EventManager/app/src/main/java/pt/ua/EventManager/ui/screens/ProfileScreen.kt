@@ -36,6 +36,8 @@ fun ProfileScreen(
 ) {
     val user by userViewModel.currentUser.collectAsState()
     val events by eventViewModel.events.collectAsState()
+    val notifications by eventViewModel.notifications.collectAsState()
+    val hasUnread = notifications.any { !it.isRead }
     val isVerified by userViewModel.isEmailVerified.collectAsState()
 
     // Calculate dynamic stats
@@ -75,18 +77,32 @@ fun ProfileScreen(
                             lineHeight = 36.sp
                         )
                     }
-                    IconButton(
-                        onClick = onNotificationsClick,
-                        modifier = Modifier
-                            .size(44.dp)
-                            .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.NotificationsNone,
-                            contentDescription = "Notifications",
-                            modifier = Modifier.size(20.dp),
-                            tint = MaterialTheme.colorScheme.onSurface
-                        )
+                    
+                    // Notification bell with blue dot indicator
+                    Box {
+                        IconButton(
+                            onClick = onNotificationsClick,
+                            modifier = Modifier
+                                .size(44.dp)
+                                .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.NotificationsNone,
+                                contentDescription = "Notifications",
+                                modifier = Modifier.size(20.dp),
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                        
+                        if (hasUnread) {
+                            Box(
+                                modifier = Modifier
+                                    .size(10.dp)
+                                    .align(Alignment.TopEnd)
+                                    .offset(x = (-2).dp, y = 2.dp)
+                                    .background(Color(0xFF3B82F6), CircleShape)
+                            )
+                        }
                     }
                 }
                 Spacer(modifier = Modifier.height(6.dp))

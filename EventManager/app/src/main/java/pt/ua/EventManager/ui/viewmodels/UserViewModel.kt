@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import pt.ua.EventManager.data.User
@@ -20,6 +21,8 @@ class UserViewModel : ViewModel() {
     private val _isEmailVerified = MutableStateFlow(false)
     val isEmailVerified: StateFlow<Boolean> = _isEmailVerified
 
+    private var userSnapshotListener: ListenerRegistration? = null
+
     val currentUserUid: String?
         get() = auth.currentUser?.uid
 
@@ -30,6 +33,7 @@ class UserViewModel : ViewModel() {
                 _isEmailVerified.value = firebaseUser.isEmailVerified
                 fetchUserData(firebaseUser.uid)
             } else {
+                userSnapshotListener?.remove()
                 _currentUser.value = null
                 _isEmailVerified.value = false
             }
@@ -37,9 +41,20 @@ class UserViewModel : ViewModel() {
     }
 
     private fun fetchUserData(uid: String) {
-        db.collection("users").document(uid).addSnapshotListener { snapshot, _ ->
+        // Remove existing listener before creating a new one
+        userSnapshotListener?.remove()
+        
+        userSnapshotListener = db.collection("users").document(uid).addSnapshotListener { snapshot, error ->
+            if (error != null) {
+                Log.e("UserViewModel", "Error fetching user data", error)
+                return@addSnapshotListener
+            }
             if (snapshot != null && snapshot.exists()) {
-                _currentUser.value = snapshot.toObject(User::class.java)
+                val user = snapshot.toObject(User::class.java)
+                // Double check that we are still listening to the same UID to prevent race conditions
+                if (auth.currentUser?.uid == uid) {
+                    _currentUser.value = user
+                }
             }
         }
     }
@@ -88,14 +103,15 @@ class UserViewModel : ViewModel() {
         val currentUid = currentUserUid ?: return
         val senderName = _currentUser.value?.name ?: "Someone"
         
-        // 1. Update lists
+        // 1. Update current user's document
         db.collection("users").document(currentUid)
             .update("friendRequestsSent", FieldValue.arrayUnion(targetUid))
             
+        // 2. Update target user's document
         db.collection("users").document(targetUid)
             .update("friendRequestsReceived", FieldValue.arrayUnion(currentUid))
 
-        // 2. Create Notification
+        // 3. Create Notification for target user
         val notification = Notification(
             type = "friend_request",
             senderUid = currentUid,
@@ -112,13 +128,13 @@ class UserViewModel : ViewModel() {
     fun acceptFriendRequest(senderUid: String) {
         val currentUid = currentUserUid ?: return
 
-        // 1. Remove from received and add to friends for current user
+        // 1. Update current user: Remove from received, add to friends
         db.collection("users").document(currentUid).update(
             "friendRequestsReceived", FieldValue.arrayRemove(senderUid),
             "friends", FieldValue.arrayUnion(senderUid)
         )
 
-        // 2. Remove from sent and add to friends for sender user
+        // 2. Update sender user: Remove from sent, add to friends
         db.collection("users").document(senderUid).update(
             "friendRequestsSent", FieldValue.arrayRemove(currentUid),
             "friends", FieldValue.arrayUnion(currentUid)
@@ -185,5 +201,10 @@ class UserViewModel : ViewModel() {
 
     fun logout() {
         auth.signOut()
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        userSnapshotListener?.remove()
     }
 }

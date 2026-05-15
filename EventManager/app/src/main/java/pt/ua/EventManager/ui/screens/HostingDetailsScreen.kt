@@ -28,6 +28,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import pt.ua.EventManager.R
 import pt.ua.EventManager.data.Event
+import pt.ua.EventManager.ui.viewmodels.AIAssistantUiState
+import pt.ua.EventManager.ui.viewmodels.AIAssistantViewModel
 import pt.ua.EventManager.ui.viewmodels.EventViewModel
 import pt.ua.EventManager.ui.viewmodels.UserViewModel
 import java.text.SimpleDateFormat
@@ -43,7 +45,8 @@ fun HostingDetailsScreen(
     onParticipantsClick: () -> Unit,
     onEditClick: () -> Unit,
     eventViewModel: EventViewModel = viewModel(),
-    userViewModel: UserViewModel = viewModel()
+    userViewModel: UserViewModel = viewModel(),
+    aiViewModel: AIAssistantViewModel = viewModel()
 ) {
     if (event == null) return
 
@@ -54,6 +57,7 @@ fun HostingDetailsScreen(
     val currentUser by userViewModel.currentUser.collectAsState()
     var showInviteDialog by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    var showAIDialog by remember { mutableStateOf(false) }
 
     val sdf = SimpleDateFormat("MMM dd, yyyy • h:mm a", Locale.getDefault())
     val dateString = sdf.format(Date(event.timestamp))
@@ -213,9 +217,12 @@ fun HostingDetailsScreen(
                         )
                         AestheticManagementButton(
                             modifier = Modifier.weight(1f),
-                            icon = Icons.Default.PersonAdd,
-                            text = "Invite Friends",
-                            onClick = { showInviteDialog = true }
+                            icon = Icons.Default.AutoAwesome,
+                            text = "AI Assistant",
+                            onClick = { 
+                                aiViewModel.getSuggestions(event)
+                                showAIDialog = true 
+                            }
                         )
                         AestheticManagementButton(
                             modifier = Modifier.weight(1f),
@@ -225,6 +232,14 @@ fun HostingDetailsScreen(
                             onClick = onShowQR
                         )
                     }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    AestheticManagementButton(
+                        modifier = Modifier.fillMaxWidth(),
+                        icon = Icons.Default.PersonAdd,
+                        text = "Invite Friends",
+                        onClick = { showInviteDialog = true }
+                    )
+                    
                     if (!isHappening && isUpcoming) {
                         Text(
                             "Check-in QR unlocks when event starts.",
@@ -305,8 +320,13 @@ fun HostingDetailsScreen(
     }
 
     if (showInviteDialog) {
+        // Filter out friends who are already participants
+        val friendsToInvite = (currentUser?.friends ?: emptyList()).filter { 
+            it !in event.participantsUids 
+        }
+
         InviteFriendsDialog(
-            friends = currentUser?.friends ?: emptyList(),
+            friends = friendsToInvite,
             onInvite = { friendUid ->
                 eventViewModel.inviteFriendToEvent(friendUid, event, currentUser?.name ?: "Host")
             },
@@ -314,6 +334,67 @@ fun HostingDetailsScreen(
             userViewModel = userViewModel
         )
     }
+
+    if (showAIDialog) {
+        AIAssistantDialog(
+            uiState = aiViewModel.uiState.collectAsState().value,
+            onDismiss = { 
+                showAIDialog = false
+                aiViewModel.resetState()
+            }
+        )
+    }
+}
+
+@Composable
+fun AIAssistantDialog(
+    uiState: AIAssistantUiState,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.AutoAwesome, null, tint = MaterialTheme.colorScheme.primary)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("AI Event Assistant", fontWeight = FontWeight.Bold)
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 100.dp, max = 400.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                when (uiState) {
+                    is AIAssistantUiState.Loading -> {
+                        Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator()
+                        }
+                    }
+                    is AIAssistantUiState.Success -> {
+                        Text(
+                            text = uiState.suggestions,
+                            style = MaterialTheme.typography.bodyMedium,
+                            lineHeight = 20.sp
+                        )
+                    }
+                    is AIAssistantUiState.Error -> {
+                        Text(
+                            text = uiState.message,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                    else -> {}
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Close") }
+        }
+    )
 }
 
 @Composable
@@ -328,7 +409,7 @@ fun InviteFriendsDialog(
         title = { Text("Invite Friends", fontWeight = FontWeight.Bold) },
         text = {
             if (friends.isEmpty()) {
-                Text("No friends to invite yet.")
+                Text("No friends to invite (they might already be in the event or you don't have friends yet).")
             } else {
                 Box(modifier = Modifier.heightIn(max = 300.dp)) {
                     LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {

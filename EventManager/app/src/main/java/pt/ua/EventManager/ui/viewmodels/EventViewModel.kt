@@ -152,6 +152,18 @@ class EventViewModel : ViewModel() {
             }
     }
 
+    fun markNotificationAsUnread(notificationId: String) {
+        val uid = currentUserUid ?: return
+        if (notificationId.isEmpty()) return
+        
+        db.collection("users").document(uid)
+            .collection("notifications").document(notificationId)
+            .update("isRead", false)
+            .addOnFailureListener { e ->
+                Log.e("EventViewModel", "Error marking notification as unread: $notificationId", e)
+            }
+    }
+
     fun clearAllNotifications() {
         val uid = currentUserUid ?: return
         db.collection("users").document(uid)

@@ -40,6 +40,8 @@ fun EventMapScreen(
     var selectedCategory by remember { mutableStateOf("All") }
 
     val allEvents by viewModel.events.collectAsState()
+    val notifications by viewModel.notifications.collectAsState()
+    val hasUnread = notifications.any { !it.isRead }
 
     val filteredEvents = allEvents.filter { event ->
         val isPublic = event.isPublic
@@ -88,22 +90,34 @@ fun EventMapScreen(
                         )
                     }
 
-                    // Notification bell with circle background from HomeScreen
-                    IconButton(
-                        onClick = onNotificationsClick,
-                        modifier = Modifier
-                            .size(44.dp)
-                            .background(
-                                color = MaterialTheme.colorScheme.surfaceVariant,
-                                shape = CircleShape
+                    // Notification bell with blue dot indicator
+                    Box {
+                        IconButton(
+                            onClick = onNotificationsClick,
+                            modifier = Modifier
+                                .size(44.dp)
+                                .background(
+                                    color = MaterialTheme.colorScheme.surfaceVariant,
+                                    shape = CircleShape
+                                )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.NotificationsNone,
+                                contentDescription = "Notifications",
+                                tint = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(22.dp)
                             )
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.NotificationsNone,
-                            contentDescription = "Notifications",
-                            tint = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.size(22.dp)
-                        )
+                        }
+                        
+                        if (hasUnread) {
+                            Box(
+                                modifier = Modifier
+                                    .size(10.dp)
+                                    .align(Alignment.TopEnd)
+                                    .offset(x = (-2).dp, y = 2.dp)
+                                    .background(Color(0xFF3B82F6), CircleShape)
+                            )
+                        }
                     }
                 }
 

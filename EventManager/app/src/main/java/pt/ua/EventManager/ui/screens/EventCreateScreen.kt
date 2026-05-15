@@ -56,6 +56,8 @@ fun EventCreateScreen(
     val calendar = Calendar.getInstance()
     val endCalendar = Calendar.getInstance()
     val currentUser by userViewModel.currentUser.collectAsState()
+    val notifications by viewModel.notifications.collectAsState()
+    val hasUnread = notifications.any { !it.isRead }
 
     // Places API states
     val placesClient = remember { Places.createClient(context) }
@@ -182,18 +184,30 @@ fun EventCreateScreen(
                         )
                     }
 
-                    IconButton(
-                        onClick = onNotificationsClick,
-                        modifier = Modifier
-                            .size(44.dp)
-                            .background(color = MaterialTheme.colorScheme.surfaceVariant, shape = CircleShape)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.NotificationsNone,
-                            contentDescription = "Notifications",
-                            tint = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.size(22.dp)
-                        )
+                    Box {
+                        IconButton(
+                            onClick = onNotificationsClick,
+                            modifier = Modifier
+                                .size(44.dp)
+                                .background(color = MaterialTheme.colorScheme.surfaceVariant, shape = CircleShape)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.NotificationsNone,
+                                contentDescription = "Notifications",
+                                tint = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                        
+                        if (hasUnread) {
+                            Box(
+                                modifier = Modifier
+                                    .size(10.dp)
+                                    .align(Alignment.TopEnd)
+                                    .offset(x = (-2).dp, y = 2.dp)
+                                    .background(Color(0xFF3B82F6), CircleShape)
+                            )
+                        }
                     }
                 }
                 Spacer(modifier = Modifier.height(6.dp))
